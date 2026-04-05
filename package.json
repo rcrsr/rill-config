@@ -1,0 +1,69 @@
+{
+  "name": "@rcrsr/rill-config",
+  "version": "0.18.3",
+  "description": "Shared config library for rill resolution, validation, loading, and bindings generation",
+  "license": "MIT",
+  "author": "Andre Bremer",
+  "type": "module",
+  "packageManager": "pnpm@10.29.2",
+  "keywords": [
+    "rill",
+    "config",
+    "scripting",
+    "extensions",
+    "project-loader"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "build:dev": "tsc --build tsconfig.dev.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "check": "pnpm run build && pnpm run test && pnpm run lint"
+  },
+  "dependencies": {
+    "semver": "^7.7.0"
+  },
+  "peerDependencies": {
+    "@rcrsr/rill": "~0.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rcrsr/rill": "~0.18.0",
+    "@types/node": "^25.3.5",
+    "@types/semver": "^7.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rcrsr/rill-config.git"
+  },
+  "homepage": "https://github.com/rcrsr/rill-config",
+  "bugs": {
+    "url": "https://github.com/rcrsr/rill-config/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

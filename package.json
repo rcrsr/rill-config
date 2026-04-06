@@ -1,6 +1,6 @@
 {
   "name": "@rcrsr/rill-config",
-  "version": "0.18.3",
+  "version": "0.18.4",
   "description": "Shared config library for rill resolution, validation, loading, and bindings generation",
   "license": "MIT",
   "author": "Andre Bremer",
@@ -37,23 +37,23 @@
     "check": "pnpm run build && pnpm run test && pnpm run lint"
   },
   "dependencies": {
-    "semver": "^7.7.0"
+    "semver": "^7.7.4"
   },
   "peerDependencies": {
     "@rcrsr/rill": "~0.18.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@rcrsr/rill": "~0.18.0",
-    "@types/node": "^25.3.5",
-    "@types/semver": "^7.5.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
-    "eslint": "^10.0.2",
+    "@rcrsr/rill": "~0.18.3",
+    "@types/node": "^25.5.2",
+    "@types/semver": "^7.7.1",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.2.0",
     "globals": "^17.4.0",
     "prettier": "^3.8.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
   },
   "repository": {
     "type": "git",

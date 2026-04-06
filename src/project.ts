@@ -7,6 +7,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ConfigNotFoundError } from './errors.js';
 import { parseConfig } from './parse.js';
+import { extractVariables, interpolate } from './vars.js';
+import { envResolver } from './var-resolvers.js';
 import { checkRuntimeVersion, validateContext } from './validate.js';
 import { resolveMounts } from './mounts.js';
 import { loadExtensions } from './loader.js';
@@ -27,10 +29,9 @@ import type { ContextFieldSchema, ProjectResult } from './types.js';
  */
 export async function loadProject(options: {
   configPath: string;
-  env: Record<string, string>;
   rillVersion: string;
 }): Promise<ProjectResult> {
-  const { configPath, env, rillVersion } = options;
+  const { configPath, rillVersion } = options;
 
   // Step 1: Read config file
   let raw: string;
@@ -46,22 +47,25 @@ export async function loadProject(options: {
   }
 
   // Step 2: Parse and interpolate config
-  const config = parseConfig(raw, env);
+  const config = parseConfig(raw);
+  const vars = extractVariables(config);
+  const resolvedVars = await envResolver().resolve(vars.global);
+  const interpolatedConfig = interpolate(config, resolvedVars);
 
   // Step 3: Runtime version check
-  if (config.runtime !== undefined) {
-    checkRuntimeVersion(config.runtime, rillVersion);
+  if (interpolatedConfig.runtime !== undefined) {
+    checkRuntimeVersion(interpolatedConfig.runtime, rillVersion);
   }
 
   // Step 4: Load extensions
   let extTree: Record<string, RillValue> = {};
   let disposes: ReadonlyArray<() => void | Promise<void>> = [];
 
-  if (config.extensions !== undefined) {
-    const mounts = resolveMounts(config.extensions.mounts);
+  if (interpolatedConfig.extensions !== undefined) {
+    const mounts = resolveMounts(interpolatedConfig.extensions.mounts);
     const loaded = await loadExtensions(
       mounts,
-      (config.extensions.config ?? {}) as Record<
+      (interpolatedConfig.extensions.config ?? {}) as Record<
         string,
         Record<string, unknown>
       >
@@ -76,9 +80,9 @@ export async function loadProject(options: {
     let contextSchema: Record<string, ContextFieldSchema> = {};
     let contextValues: Record<string, unknown> = {};
 
-    if (config.context !== undefined) {
-      contextValues = validateContext(config.context);
-      contextSchema = config.context.schema;
+    if (interpolatedConfig.context !== undefined) {
+      contextValues = validateContext(interpolatedConfig.context);
+      contextSchema = interpolatedConfig.context.schema;
     }
 
     // Step 6: Build extension bindings
@@ -91,16 +95,16 @@ export async function loadProject(options: {
     const resolverConfig = buildResolvers({
       extTree,
       contextValues,
-      modulesConfig: config.modules ?? {},
+      modulesConfig: interpolatedConfig.modules ?? {},
       configDir: dirname(configPath),
     });
 
     return {
-      config,
+      config: interpolatedConfig,
       extTree,
       disposes,
       resolverConfig,
-      hostOptions: config.host ?? {},
+      hostOptions: interpolatedConfig.host ?? {},
       extensionBindings,
       contextBindings,
     };

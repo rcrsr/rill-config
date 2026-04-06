@@ -35,8 +35,8 @@ export function envResolver(): VariableResolver {
 // ============================================================
 
 /**
- * Returns a resolver that looks up names in a caller-supplied static map.
- * The `values` map is captured at construction time.
+ * Returns a resolver that looks up names in a caller-supplied map.
+ * The `values` map is held by reference; later mutations are visible to the resolver.
  * Names absent from the map are omitted (partial-match contract).
  */
 export function literalResolver(

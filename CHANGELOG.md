@@ -6,6 +6,11 @@
 
 - Support variable resolution with `${VAR}` environment and `@{VAR}` session variables
 
+### Changed
+
+- `parseConfig` no longer interpolates values during parsing; callers must perform variable resolution separately
+- `loadProject` no longer accepts an `env` override argument
+
 ## 0.18.4
 
 - Update all dependencies to latest versions (typescript 5.9.3 → 6.0.2, vitest 4.0.18 → 4.1.2)

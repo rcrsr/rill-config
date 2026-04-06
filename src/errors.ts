@@ -82,14 +82,12 @@ export class HandlerArgError extends ConfigError {
 // RESOLVER ERRORS
 // ============================================================
 
-export class ResolverError extends Error {
+export class ResolverError extends ConfigError {
+  readonly code = 'RESOLVER' as const;
   readonly resolverName: string;
-  override readonly cause: Error;
-
-  constructor(message: string, resolverName: string, cause: Error) {
-    super(message);
+  constructor(message: string, resolverName: string, cause: unknown) {
+    super(message, { cause });
     this.name = 'ResolverError';
     this.resolverName = resolverName;
-    this.cause = cause;
   }
 }

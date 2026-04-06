@@ -240,7 +240,7 @@ export function interpolate(
   vars: Record<string, string>
 ): RillConfigFile {
   const missing = new Set<string>();
-  const result = substituteValue(config, vars, missing, true, true);
+  const result = substituteValue(config, vars, missing, true, false);
 
   if (missing.size > 0) {
     const names = [...missing].sort().join(', ');
@@ -271,7 +271,7 @@ export function substituteSessionVars(
 
   if (missing.size > 0) {
     const names = [...missing].sort().join(', ');
-    throw new ConfigEnvError(`Missing environment variables: ${names}`);
+    throw new ConfigEnvError(`Missing session variables: ${names}`);
   }
 
   return result as RillConfigFile;

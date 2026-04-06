@@ -77,3 +77,19 @@ export class BundleRestrictionError extends ConfigError {
 export class HandlerArgError extends ConfigError {
   readonly code = 'HANDLER_ARG' as const;
 }
+
+// ============================================================
+// RESOLVER ERRORS
+// ============================================================
+
+export class ResolverError extends Error {
+  readonly resolverName: string;
+  override readonly cause: Error;
+
+  constructor(message: string, resolverName: string, cause: Error) {
+    super(message);
+    this.name = 'ResolverError';
+    this.resolverName = resolverName;
+    this.cause = cause;
+  }
+}

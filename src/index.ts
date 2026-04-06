@@ -66,6 +66,29 @@ export {
 } from './handler.js';
 
 // ============================================================
+// VARIABLE ENGINE
+// ============================================================
+export type { ConfigVariables } from './vars.js';
+export {
+  extractVariables,
+  validateVarScope,
+  interpolate,
+  hasSessionVars,
+  extractSessionVarNames,
+  substituteSessionVars,
+} from './vars.js';
+
+// ============================================================
+// VARIABLE RESOLVERS
+// ============================================================
+export type { VariableResolver } from './var-resolvers.js';
+export {
+  envResolver,
+  literalResolver,
+  chainResolvers,
+} from './var-resolvers.js';
+
+// ============================================================
 // ERROR CLASSES
 // ============================================================
 export {
@@ -83,4 +106,5 @@ export {
   ContextValidationError,
   BundleRestrictionError,
   HandlerArgError,
+  ResolverError,
 } from './errors.js';

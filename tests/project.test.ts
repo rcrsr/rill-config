@@ -57,7 +57,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(result.extTree).toEqual({});
@@ -72,7 +72,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(result.config.name).toBe('test-project');
@@ -87,7 +87,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(result.resolverConfig.resolvers).toHaveProperty('ext');
@@ -103,7 +103,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(typeof result.extensionBindings).toBe('string');
@@ -118,7 +118,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(result.hostOptions).toEqual({});
@@ -134,7 +134,7 @@ describe('loadProject', () => {
       try {
         const result = await loadProject({
           configPath,
-          env: {},
+
           rillVersion: '1.0.0',
         });
         expect(result.contextBindings).toContain('apiUrl');
@@ -150,7 +150,7 @@ describe('loadProject', () => {
       await expect(
         loadProject({
           configPath: '/nonexistent/path/rill-config.json',
-          env: {},
+
           rillVersion: '1.0.0',
         })
       ).rejects.toThrow(ConfigNotFoundError);
@@ -160,7 +160,6 @@ describe('loadProject', () => {
       const exitSpy = vi.spyOn(process, 'exit');
       await loadProject({
         configPath: '/nonexistent/path/rill-config.json',
-        env: {},
         rillVersion: '1.0.0',
       }).catch(() => undefined);
       expect(exitSpy).not.toHaveBeenCalled();

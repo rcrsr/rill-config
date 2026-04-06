@@ -1,11 +1,9 @@
 /**
  * Tests for parseConfig and parseMainField
- * Covers: HP-4, HP-5, HP-6, HP-10, EC-2, EC-3, EC-4, EC-15, BC-3, BC-6
- * (AC-4, AC-5, AC-6, AC-10, AC-12, AC-25, AC-28)
+ * Covers: AC-13, AC-21, AC-22, EC-4, EC-5
  */
 
 import {
-  ConfigEnvError,
   ConfigParseError,
   ConfigValidationError,
   parseConfig,
@@ -28,7 +26,7 @@ describe('parseConfig', () => {
         main: 'index.rill',
       });
 
-      const result = parseConfig(raw, {});
+      const result = parseConfig(raw);
 
       expect(result.name).toBe('my-app');
       expect(result.version).toBe('1.2.3');
@@ -48,7 +46,7 @@ describe('parseConfig', () => {
         modules: { math: './math.rill' },
       });
 
-      const result = parseConfig(raw, {});
+      const result = parseConfig(raw);
 
       expect(result.extensions).toEqual({
         mounts: { 'ext/http': 'rill-http@1.0.0' },
@@ -62,9 +60,23 @@ describe('parseConfig', () => {
     });
   });
 
+  describe('AC-13: placeholder preservation', () => {
+    it('returns config with ${VAR} placeholders intact', () => {
+      const raw = JSON.stringify({
+        name: '${APP_NAME}',
+        description: 'ver ${VERSION}',
+      });
+
+      const result = parseConfig(raw);
+
+      expect(result.name).toBe('${APP_NAME}');
+      expect(result.description).toBe('ver ${VERSION}');
+    });
+  });
+
   describe('BC-3: bare minimum config', () => {
     it('returns a config with all optional fields undefined when given empty object JSON', () => {
-      const result = parseConfig('{}', {});
+      const result = parseConfig('{}');
 
       expect(result.name).toBeUndefined();
       expect(result.version).toBeUndefined();
@@ -78,102 +90,21 @@ describe('parseConfig', () => {
     });
   });
 
-  describe('HP-10: env var interpolation', () => {
-    it('interpolates ${API_KEY} from the provided env record', () => {
-      const raw = JSON.stringify({ description: 'key is ${API_KEY}' });
-
-      const result = parseConfig(raw, { API_KEY: 'secret-123' });
-
-      expect(result.description).toBe('key is secret-123');
-    });
-
-    it('interpolates multiple distinct vars in a single string', () => {
-      const raw = JSON.stringify({ name: '${ORG}-${APP}' });
-
-      const result = parseConfig(raw, { ORG: 'acme', APP: 'runner' });
-
-      expect(result.name).toBe('acme-runner');
-    });
-
-    it('interpolates env vars nested inside object values', () => {
-      const raw = JSON.stringify({
-        modules: { path: '${BASE_PATH}/script.rill' },
-      });
-
-      const result = parseConfig(raw, { BASE_PATH: '/opt/rill' });
-
-      expect(result.modules).toEqual({ path: '/opt/rill/script.rill' });
-    });
-  });
-
-  describe('BC-6: non-string values not interpolated', () => {
-    it('does not interpolate ${VAR} syntax in numeric fields', () => {
-      const raw = JSON.stringify({ host: { timeout: 3000 } });
-
-      const result = parseConfig(raw, { timeout: 'should-not-appear' });
-
-      expect(result.host?.timeout).toBe(3000);
-    });
-
-    it('does not attempt interpolation on boolean values', () => {
-      const raw = JSON.stringify({
-        context: {
-          schema: {},
-          values: { flag: true },
-        },
-      });
-
-      const result = parseConfig(raw, {});
-
-      const values = result.context?.values as Record<string, unknown>;
-      expect(values?.['flag']).toBe(true);
-    });
-  });
-
   describe('EC-2: invalid JSON', () => {
     it('throws ConfigParseError for malformed JSON', () => {
-      expect(() => parseConfig('not json', {})).toThrow(ConfigParseError);
+      expect(() => parseConfig('not json')).toThrow(ConfigParseError);
     });
 
     it('throws ConfigParseError with message starting with "Failed to parse config:"', () => {
-      expect(() => parseConfig('{broken', {})).toThrow(
-        /^Failed to parse config:/
-      );
+      expect(() => parseConfig('{broken')).toThrow(/^Failed to parse config:/);
     });
 
     it('throws ConfigParseError when JSON is a top-level array', () => {
-      expect(() => parseConfig('[]', {})).toThrow(ConfigParseError);
+      expect(() => parseConfig('[]')).toThrow(ConfigParseError);
     });
 
     it('throws ConfigParseError when JSON is a top-level string', () => {
-      expect(() => parseConfig('"hello"', {})).toThrow(ConfigParseError);
-    });
-  });
-
-  describe('EC-3: missing env vars', () => {
-    it('throws ConfigEnvError when a referenced env var is absent', () => {
-      const raw = JSON.stringify({ name: '${MISSING_VAR}' });
-
-      expect(() => parseConfig(raw, {})).toThrow(ConfigEnvError);
-    });
-
-    it('collects all missing var names into a single ConfigEnvError', () => {
-      const raw = JSON.stringify({
-        name: '${FIRST_MISSING}',
-        description: '${SECOND_MISSING}',
-      });
-
-      expect(() => parseConfig(raw, {})).toThrow(
-        'Missing environment variables: FIRST_MISSING, SECOND_MISSING'
-      );
-    });
-
-    it('throws ConfigEnvError listing names in sorted order', () => {
-      const raw = JSON.stringify({ name: '${ZZZ} ${AAA}' });
-
-      expect(() => parseConfig(raw, {})).toThrow(
-        'Missing environment variables: AAA, ZZZ'
-      );
+      expect(() => parseConfig('"hello"')).toThrow(ConfigParseError);
     });
   });
 
@@ -181,13 +112,13 @@ describe('parseConfig', () => {
     it('throws ConfigValidationError when a string field receives a number', () => {
       const raw = JSON.stringify({ name: 42 });
 
-      expect(() => parseConfig(raw, {})).toThrow(ConfigValidationError);
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
     });
 
     it('throws ConfigValidationError with message showing field name and types', () => {
       const raw = JSON.stringify({ version: false });
 
-      expect(() => parseConfig(raw, {})).toThrow(
+      expect(() => parseConfig(raw)).toThrow(
         'Field version: expected string, got boolean'
       );
     });
@@ -195,13 +126,13 @@ describe('parseConfig', () => {
     it('throws ConfigValidationError when extensions field receives an array', () => {
       const raw = JSON.stringify({ extensions: [] });
 
-      expect(() => parseConfig(raw, {})).toThrow(ConfigValidationError);
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
     });
 
     it('throws ConfigValidationError when host field receives a string', () => {
       const raw = JSON.stringify({ host: 'invalid' });
 
-      expect(() => parseConfig(raw, {})).toThrow(
+      expect(() => parseConfig(raw)).toThrow(
         'Field host: expected object, got string'
       );
     });

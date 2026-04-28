@@ -660,4 +660,38 @@ describe('buildContextBindings', () => {
     const result = buildContextBindings(schema, { msg: 'say "hello"' });
     expect(result).toContain('\\"hello\\"');
   });
+
+  it('escapes newline characters in string values', () => {
+    const schema: Record<string, ContextFieldSchema> = {
+      msg: { type: 'string' },
+    };
+    const result = buildContextBindings(schema, { msg: 'line1\nline2' });
+    // Output must contain the two-character escape \n, not a literal newline
+    expect(result).toContain('line1\\nline2');
+    expect(result).not.toContain('line1\nline2');
+  });
+
+  it('escapes tab and carriage return in string values', () => {
+    const schema: Record<string, ContextFieldSchema> = {
+      msg: { type: 'string' },
+    };
+    const result = buildContextBindings(schema, { msg: 'a\tb\rc' });
+    expect(result).toContain('a\\tb\\rc');
+  });
+
+  it('escapes control characters (U+0000-U+001F) in string values', () => {
+    const schema: Record<string, ContextFieldSchema> = {
+      msg: { type: 'string' },
+    };
+    const result = buildContextBindings(schema, { msg: 'xy' });
+    expect(result).toContain('x\\u0001y');
+  });
+
+  it('escapes backslash in string values without doubling existing escapes', () => {
+    const schema: Record<string, ContextFieldSchema> = {
+      msg: { type: 'string' },
+    };
+    const result = buildContextBindings(schema, { msg: 'a\\b' });
+    expect(result).toContain('"a\\\\b"');
+  });
 });

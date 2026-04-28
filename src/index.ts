@@ -2,6 +2,7 @@
 // DATA MODEL TYPES
 // ============================================================
 export type {
+  ExtensionFactoryCtx,
   ExtensionManifest,
   RillConfigFile,
   ExtensionsBlock,

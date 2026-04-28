@@ -1,6 +1,11 @@
-import type { ExtensionManifest, RillValue, SchemeResolver } from '@rcrsr/rill';
+import type {
+  ExtensionFactoryCtx,
+  ExtensionManifest,
+  RillValue,
+  SchemeResolver,
+} from '@rcrsr/rill';
 
-export type { ExtensionManifest };
+export type { ExtensionFactoryCtx, ExtensionManifest };
 
 // ============================================================
 // CONFIG FILE SHAPE
@@ -52,6 +57,14 @@ export interface LoadedProject {
   readonly extTree: Record<string, RillValue>;
   readonly disposes: ReadonlyArray<() => void | Promise<void>>;
   readonly manifests: ReadonlyMap<string, ExtensionManifest>;
+  /**
+   * Atom-code registrations contributed by extension factories via
+   * `ctx.registerErrorCode(name, kind)`. Hosts that run a rill runtime
+   * must replay these on the runtime's `RuntimeContext` before script
+   * execution so user scripts can match invalids via
+   * `guard<on: list[#NAME]>` and `.!code`.
+   */
+  readonly errorCodes: ReadonlyMap<string, string>;
 }
 
 export interface ResolverConfig {
@@ -65,6 +78,7 @@ export interface ProjectResult {
   readonly config: RillConfigFile;
   readonly extTree: Record<string, RillValue>;
   readonly disposes: ReadonlyArray<() => void | Promise<void>>;
+  readonly errorCodes: ReadonlyMap<string, string>;
   readonly resolverConfig: ResolverConfig;
   readonly hostOptions: HostBlock;
   readonly extensionBindings: string;

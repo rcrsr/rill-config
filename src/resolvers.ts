@@ -32,8 +32,6 @@ export function buildResolvers(options: {
 }): ResolverConfig {
   const { extTree, contextValues, modulesConfig, configDir } = options;
 
-  const extConfig = extTree;
-
   // Build the module: resolver config, resolving all folder paths relative to configDir
   const moduleDirs: Record<string, string> = {};
   for (const [id, value] of Object.entries(modulesConfig)) {
@@ -67,7 +65,7 @@ export function buildResolvers(options: {
     },
     configurations: {
       resolvers: {
-        ext: extConfig,
+        ext: extTree,
         context: contextValues,
       },
     },

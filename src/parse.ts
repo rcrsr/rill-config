@@ -20,6 +20,15 @@ function assertOptionalObject(field: string, value: unknown): void {
   }
 }
 
+/**
+ * Parse a JSON config string into a RillConfigFile.
+ *
+ * Validation is **shallow**: only top-level field types are checked
+ * (string fields are strings; object fields are non-array objects).
+ * Nested shapes (e.g. `extensions.mounts` keys/values, `context.schema`
+ * field types, `host` numeric fields) are not validated here — they
+ * are checked downstream by `resolveMounts`, `validateContext`, etc.
+ */
 export function parseConfig(raw: string): RillConfigFile {
   let parsed: unknown;
   try {

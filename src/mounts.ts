@@ -9,7 +9,7 @@ const SEGMENT_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 function validateMountPath(mountPath: string): void {
   if (!mountPath) {
-    throw new MountValidationError(`Invalid segment:  in ${mountPath}`);
+    throw new MountValidationError('Mount path is empty');
   }
   const segments = mountPath.split('.');
   for (const segment of segments) {
@@ -37,7 +37,7 @@ function parseSpecifier(raw: string): {
   // Scoped packages: @scope/name or @scope/name@version
   if (raw.startsWith('@')) {
     // Find the last '@' after position 1 (skip the leading scope '@')
-    const lastAt = raw.lastIndexOf('@', raw.length - 1);
+    const lastAt = raw.lastIndexOf('@');
     if (lastAt > 0 && lastAt < raw.length - 1) {
       return {
         packageSpecifier: raw.slice(0, lastAt),
@@ -104,32 +104,31 @@ export function resolveMounts(mounts: Record<string, string>): ResolvedMount[] {
 // ============================================================
 
 export function detectNamespaceCollisions(mounts: ResolvedMount[]): void {
-  // Check each pair of mounts from different packages for prefix overlap.
   for (let i = 0; i < mounts.length; i++) {
     const mountA = mounts[i]!;
 
     for (let j = i + 1; j < mounts.length; j++) {
       const mountB = mounts[j]!;
 
-      // Same-package: allowed
+      // Same-package overlaps are allowed; intra-package nested-mount
+      // collisions are caught later by mountValue.
       if (mountA.packageSpecifier === mountB.packageSpecifier) continue;
 
-      // Exact match: two different packages at the same mount path
       if (mountA.mountPath === mountB.mountPath) {
         throw new NamespaceCollisionError(
           `${mountA.mountPath} mounted by ${mountA.packageSpecifier} and ${mountB.packageSpecifier}`
         );
       }
 
-      // Prefix overlap: a is prefix of b or b is prefix of a
-      if (mountB.mountPath.startsWith(mountA.mountPath + '.')) {
+      // Order the pair so `outer` is the prefix candidate; emit one branch.
+      const [outer, inner] =
+        mountA.mountPath.length < mountB.mountPath.length
+          ? [mountA, mountB]
+          : [mountB, mountA];
+
+      if (inner.mountPath.startsWith(outer.mountPath + '.')) {
         throw new NamespaceCollisionError(
-          `${mountA.mountPath} (${mountA.packageSpecifier}) is prefix of ${mountB.mountPath} (${mountB.packageSpecifier})`
-        );
-      }
-      if (mountA.mountPath.startsWith(mountB.mountPath + '.')) {
-        throw new NamespaceCollisionError(
-          `${mountB.mountPath} (${mountB.packageSpecifier}) is prefix of ${mountA.mountPath} (${mountA.packageSpecifier})`
+          `${outer.mountPath} (${outer.packageSpecifier}) is prefix of ${inner.mountPath} (${inner.packageSpecifier})`
         );
       }
     }

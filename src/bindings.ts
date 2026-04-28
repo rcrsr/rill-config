@@ -27,6 +27,30 @@ function serializeParam(param: RillParam): string {
   return `${param.name}: ${mapParamType(param)}`;
 }
 
+/**
+ * Map a leaf RillValue to its `use<ext:...>` type-suffix. Returns
+ * `undefined` for nested dicts (which need recursion) and any value
+ * shape we don't bind.
+ */
+function leafTypeSuffix(child: RillValue): string | undefined {
+  if (isApplicationCallable(child)) {
+    const returnSuffix = ` :${formatStructure(child.returnType.structure)}`;
+    const params = child.params;
+    const paramStr =
+      params === undefined || params.length === 0
+        ? ''
+        : params.map(serializeParam).join(', ');
+    return `|${paramStr}|${returnSuffix}`;
+  }
+  if (typeof child === 'string') return 'string';
+  if (typeof child === 'number') return 'number';
+  if (typeof child === 'boolean') return 'bool';
+  if (Array.isArray(child)) return 'list';
+  if (isTuple(child)) return 'tuple';
+  if (isVector(child)) return 'vector';
+  return undefined;
+}
+
 function buildNestedDict(
   node: Record<string, RillValue>,
   path: string,
@@ -38,31 +62,9 @@ function buildNestedDict(
   for (const [key, child] of Object.entries(node)) {
     const childPath = path.length > 0 ? `${path}.${key}` : key;
 
-    if (isApplicationCallable(child)) {
-      const params = child.params;
-      const returnSuffix = ` :${formatStructure(child.returnType.structure)}`;
-      if (params === undefined || params.length === 0) {
-        entries.push(
-          `${childIndent}${key}: use<ext:${childPath}>:||${returnSuffix}`
-        );
-      } else {
-        const paramStr = params.map(serializeParam).join(', ');
-        entries.push(
-          `${childIndent}${key}: use<ext:${childPath}>:|${paramStr}|${returnSuffix}`
-        );
-      }
-    } else if (typeof child === 'string') {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:string`);
-    } else if (typeof child === 'number') {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:number`);
-    } else if (typeof child === 'boolean') {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:bool`);
-    } else if (Array.isArray(child)) {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:list`);
-    } else if (isTuple(child)) {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:tuple`);
-    } else if (isVector(child)) {
-      entries.push(`${childIndent}${key}: use<ext:${childPath}>:vector`);
+    const suffix = leafTypeSuffix(child);
+    if (suffix !== undefined) {
+      entries.push(`${childIndent}${key}: use<ext:${childPath}>:${suffix}`);
     } else if (typeof child === 'object' && child !== null) {
       const nested = buildNestedDict(
         child as Record<string, RillValue>,
@@ -109,12 +111,13 @@ export function buildContextBindings(
 
   for (const [key, fieldSchema] of Object.entries(schema)) {
     const value = values[key];
-    const rillType = fieldSchema.type === 'bool' ? 'bool' : fieldSchema.type;
+    const rillType = fieldSchema.type;
 
     let rillLiteral: string;
     if (rillType === 'string') {
-      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      rillLiteral = `"${escaped}"`;
+      // JSON.stringify covers \, ", \n, \r, \t, \b, \f, and U+0000-U+001F.
+      // Rill string literals accept JSON-compatible escapes.
+      rillLiteral = JSON.stringify(String(value));
     } else if (rillType === 'number') {
       rillLiteral = String(value);
     } else {

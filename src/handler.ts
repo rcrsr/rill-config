@@ -73,6 +73,42 @@ export function introspectHandler(
 // ============================================================
 
 /**
+ * Coerce a single CLI string argument into the param's declared type.
+ * Pure function; throws HandlerArgError with a paramName-keyed message.
+ */
+function coerceArgValue(raw: string, type: string, paramName: string): unknown {
+  if (type === 'number') {
+    const n = Number(raw);
+    if (Number.isNaN(n)) {
+      throw new HandlerArgError(
+        `Parameter ${paramName}: cannot convert '${raw}' to number`
+      );
+    }
+    return n;
+  }
+  if (type === 'bool') {
+    // Empty string = presence-only flag (CLI convention) → true.
+    // Explicit "true"/"false" parses to a boolean. Anything else errors.
+    if (raw === '' || raw.toLowerCase() === 'true') return true;
+    if (raw.toLowerCase() === 'false') return false;
+    throw new HandlerArgError(
+      `Parameter ${paramName}: cannot convert '${raw}' to bool`
+    );
+  }
+  if (type === 'dict' || type === 'list') {
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      throw new HandlerArgError(
+        `Parameter ${paramName}: cannot convert '${raw}' to ${type}`
+      );
+    }
+  }
+  // string or any
+  return raw;
+}
+
+/**
  * Map CLI flag string values to typed handler parameters.
  * Coerces types per param.type; throws HandlerArgError on failures.
  */
@@ -85,7 +121,6 @@ export function marshalCliArgs(
     paramsByName.set(param.name, param);
   }
 
-  // Check for unknown flags
   for (const name of Object.keys(args)) {
     if (!paramsByName.has(name)) {
       throw new HandlerArgError(`Unknown parameter: ${name}`);
@@ -107,33 +142,7 @@ export function marshalCliArgs(
       continue;
     }
 
-    const type = param.type;
-
-    if (type === 'number') {
-      const n = Number(raw);
-      if (Number.isNaN(n)) {
-        throw new HandlerArgError(
-          `Parameter ${param.name}: cannot convert '${raw}' to number`
-        );
-      }
-      result[param.name] = n;
-    } else if (type === 'bool') {
-      // Presence of flag = true; absence handled above
-      result[param.name] = true;
-    } else if (type === 'dict' || type === 'list') {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw) as unknown;
-      } catch {
-        throw new HandlerArgError(
-          `Parameter ${param.name}: cannot convert '${raw}' to ${type}`
-        );
-      }
-      result[param.name] = parsed;
-    } else {
-      // string or any
-      result[param.name] = raw;
-    }
+    result[param.name] = coerceArgValue(raw, param.type, param.name);
   }
 
   return result;

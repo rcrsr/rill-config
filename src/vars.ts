@@ -7,6 +7,8 @@ import { ConfigEnvError } from './errors.js';
 
 const ENV_VAR_PATTERN = /\$\{([A-Z_][A-Z0-9_]*)\}/g;
 const SESSION_VAR_PATTERN = /@\{([A-Z_][A-Z0-9_]*)\}/g;
+// Non-global probe for stateless `.test()` checks.
+const SESSION_VAR_PROBE = /@\{[A-Z_][A-Z0-9_]*\}/;
 
 // ============================================================
 // DATA MODEL
@@ -21,77 +23,51 @@ export interface ConfigVariables {
 // INTERNAL HELPERS
 // ============================================================
 
-function collectFromString(
-  value: string,
-  global: Set<string>,
-  session: Set<string>
-): void {
-  let match: RegExpExecArray | null;
+type StringVisitor = (value: string, path: string) => void;
 
-  ENV_VAR_PATTERN.lastIndex = 0;
-  while ((match = ENV_VAR_PATTERN.exec(value)) !== null) {
-    const name = match[1];
-    if (name !== undefined) global.add(name);
-  }
-
-  SESSION_VAR_PATTERN.lastIndex = 0;
-  while ((match = SESSION_VAR_PATTERN.exec(value)) !== null) {
-    const name = match[1];
-    if (name !== undefined) session.add(name);
-  }
-}
-
-function collectFromValue(
-  value: unknown,
-  global: Set<string>,
-  session: Set<string>
-): void {
+/**
+ * Recursive descent over an arbitrary value tree, invoking `visit` for
+ * every string leaf with its dot-path. Array indices use `[i]` notation.
+ */
+function walkStrings(value: unknown, path: string, visit: StringVisitor): void {
   if (typeof value === 'string') {
-    collectFromString(value, global, session);
+    visit(value, path);
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value) {
-      collectFromValue(item, global, session);
+    for (let i = 0; i < value.length; i++) {
+      walkStrings(value[i], `${path}[${i}]`, visit);
     }
     return;
   }
   if (typeof value === 'object' && value !== null) {
     for (const key of Object.keys(value)) {
-      collectFromValue(
-        (value as Record<string, unknown>)[key],
-        global,
-        session
-      );
+      const childPath = path.length === 0 ? key : `${path}.${key}`;
+      walkStrings((value as Record<string, unknown>)[key], childPath, visit);
     }
   }
 }
 
-function collectSessionFromString(value: string, session: Set<string>): void {
-  SESSION_VAR_PATTERN.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = SESSION_VAR_PATTERN.exec(value)) !== null) {
-    const name = match[1];
-    if (name !== undefined) session.add(name);
+interface CollectSinks {
+  global?: Set<string>;
+  session?: Set<string>;
+}
+
+function collectFromString(value: string, sinks: CollectSinks): void {
+  if (sinks.global !== undefined) {
+    for (const match of value.matchAll(ENV_VAR_PATTERN)) {
+      sinks.global.add(match[1]!);
+    }
+  }
+  if (sinks.session !== undefined) {
+    for (const match of value.matchAll(SESSION_VAR_PATTERN)) {
+      sinks.session.add(match[1]!);
+    }
   }
 }
 
-function collectSessionFromValue(value: unknown, session: Set<string>): void {
-  if (typeof value === 'string') {
-    collectSessionFromString(value, session);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectSessionFromValue(item, session);
-    }
-    return;
-  }
-  if (typeof value === 'object' && value !== null) {
-    for (const key of Object.keys(value)) {
-      collectSessionFromValue((value as Record<string, unknown>)[key], session);
-    }
-  }
+function collect(value: unknown, sinks: CollectSinks): void {
+  walkStrings(value, '', (str) => collectFromString(str, sinks));
 }
 
 function substituteString(
@@ -101,30 +77,15 @@ function substituteString(
   replaceEnv: boolean,
   replaceSession: boolean
 ): string {
+  const replacer = (match: string, name: string): string => {
+    if (name in vars) return vars[name] as string;
+    missing.add(name);
+    return match;
+  };
+
   let result = value;
-
-  if (replaceEnv) {
-    ENV_VAR_PATTERN.lastIndex = 0;
-    result = result.replace(ENV_VAR_PATTERN, (_match, name: string) => {
-      if (name in vars) {
-        return vars[name] as string;
-      }
-      missing.add(name);
-      return _match;
-    });
-  }
-
-  if (replaceSession) {
-    SESSION_VAR_PATTERN.lastIndex = 0;
-    result = result.replace(SESSION_VAR_PATTERN, (_match, name: string) => {
-      if (name in vars) {
-        return vars[name] as string;
-      }
-      missing.add(name);
-      return _match;
-    });
-  }
-
+  if (replaceEnv) result = result.replace(ENV_VAR_PATTERN, replacer);
+  if (replaceSession) result = result.replace(SESSION_VAR_PATTERN, replacer);
   return result;
 }
 
@@ -166,73 +127,40 @@ function substituteValue(
 export function extractVariables(config: RillConfigFile): ConfigVariables {
   const global = new Set<string>();
   const session = new Set<string>();
-  collectFromValue(config, global, session);
+  collect(config, { global, session });
   return {
     global: [...global].sort(),
     session: [...session].sort(),
   };
 }
 
+/**
+ * Top-level config dot-path subtrees under which session vars (`@{VAR}`)
+ * are permitted. A string's dot-path is allowed when it sits at, or
+ * underneath, one of these prefixes.
+ */
+const SESSION_VAR_ALLOWED_SUBTREES: readonly string[] = [
+  'extensions.config',
+  'context.values',
+];
+
+function isPathAllowed(path: string): boolean {
+  for (const prefix of SESSION_VAR_ALLOWED_SUBTREES) {
+    if (path === prefix || path.startsWith(prefix + '.')) return true;
+  }
+  return false;
+}
+
 export function validateVarScope(config: RillConfigFile): string[] {
-  const violations: string[] = [];
+  const violations = new Set<string>();
 
-  function checkValue(value: unknown, path: string): void {
-    if (typeof value === 'string') {
-      SESSION_VAR_PATTERN.lastIndex = 0;
-      if (SESSION_VAR_PATTERN.test(value)) {
-        violations.push(path);
-      }
-      return;
-    }
-    if (Array.isArray(value)) {
-      for (let i = 0; i < value.length; i++) {
-        checkValue(value[i], `${path}[${i}]`);
-      }
-      return;
-    }
-    if (typeof value === 'object' && value !== null) {
-      for (const key of Object.keys(value)) {
-        checkValue((value as Record<string, unknown>)[key], `${path}.${key}`);
-      }
-    }
-  }
+  walkStrings(config, '', (value, path) => {
+    if (!SESSION_VAR_PROBE.test(value)) return;
+    if (isPathAllowed(path)) return;
+    violations.add(path);
+  });
 
-  // Walk top-level keys and check session vars outside permitted paths
-  for (const topKey of Object.keys(config)) {
-    const topValue = (config as Record<string, unknown>)[topKey];
-    if (topKey === 'extensions') {
-      // Walk extensions sub-keys; only extensions.config.* is permitted
-      if (typeof topValue === 'object' && topValue !== null) {
-        for (const extKey of Object.keys(topValue)) {
-          const extValue = (topValue as Record<string, unknown>)[extKey];
-          if (extKey === 'config') {
-            // extensions.config.* is permitted - skip session var check
-            continue;
-          }
-          // extensions.mounts.* and anything else is not permitted
-          checkValue(extValue, `extensions.${extKey}`);
-        }
-      }
-    } else if (topKey === 'context') {
-      // Walk context sub-keys; only context.values.* is permitted
-      if (typeof topValue === 'object' && topValue !== null) {
-        for (const ctxKey of Object.keys(topValue)) {
-          const ctxValue = (topValue as Record<string, unknown>)[ctxKey];
-          if (ctxKey === 'values') {
-            // context.values.* is permitted - skip session var check
-            continue;
-          }
-          // context.schema.* and anything else is not permitted
-          checkValue(ctxValue, `context.${ctxKey}`);
-        }
-      }
-    } else {
-      checkValue(topValue, topKey);
-    }
-  }
-
-  // Deduplicate and sort violations
-  return [...new Set(violations)].sort();
+  return [...violations].sort();
 }
 
 export function interpolate(
@@ -252,13 +180,13 @@ export function interpolate(
 
 export function hasSessionVars(config: RillConfigFile): boolean {
   const session = new Set<string>();
-  collectSessionFromValue(config, session);
+  collect(config, { session });
   return session.size > 0;
 }
 
 export function extractSessionVarNames(config: RillConfigFile): string[] {
   const session = new Set<string>();
-  collectSessionFromValue(config, session);
+  collect(config, { session });
   return [...session].sort();
 }
 

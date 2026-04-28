@@ -11,7 +11,7 @@ import { extractVariables, interpolate } from './vars.js';
 import { envResolver } from './var-resolvers.js';
 import { checkRuntimeVersion, validateContext } from './validate.js';
 import { resolveMounts } from './mounts.js';
-import { loadExtensions } from './loader.js';
+import { loadExtensions, runDisposes } from './loader.js';
 import { buildContextBindings, buildExtensionBindings } from './bindings.js';
 import { buildResolvers } from './resolvers.js';
 import type { RillValue } from '@rcrsr/rill';
@@ -30,8 +30,14 @@ import type { ContextFieldSchema, ProjectResult } from './types.js';
 export async function loadProject(options: {
   configPath: string;
   rillVersion: string;
+  /**
+   * Optional parent abort signal. When aborted, cascades into every
+   * extension factory's `ctx.signal` so factories that registered
+   * cleanup via `signal.addEventListener('abort', ...)` tear down.
+   */
+  signal?: AbortSignal;
 }): Promise<ProjectResult> {
-  const { configPath, rillVersion } = options;
+  const { configPath, rillVersion, signal } = options;
 
   // Step 1: Read config file
   let raw: string;
@@ -60,6 +66,7 @@ export async function loadProject(options: {
   // Step 4: Load extensions
   let extTree: Record<string, RillValue> = {};
   let disposes: ReadonlyArray<() => void | Promise<void>> = [];
+  let errorCodes: ReadonlyMap<string, string> = new Map();
 
   if (interpolatedConfig.extensions !== undefined) {
     const mounts = resolveMounts(interpolatedConfig.extensions.mounts);
@@ -68,10 +75,12 @@ export async function loadProject(options: {
       (interpolatedConfig.extensions.config ?? {}) as Record<
         string,
         Record<string, unknown>
-      >
+      >,
+      signal !== undefined ? { signal } : {}
     );
     extTree = loaded.extTree;
     disposes = loaded.disposes;
+    errorCodes = loaded.errorCodes;
   }
 
   // Steps 5-8 wrapped to ensure extension cleanup on failure
@@ -103,19 +112,14 @@ export async function loadProject(options: {
       config: interpolatedConfig,
       extTree,
       disposes,
+      errorCodes,
       resolverConfig,
       hostOptions: interpolatedConfig.host ?? {},
       extensionBindings,
       contextBindings,
     };
   } catch (err) {
-    for (const dispose of disposes) {
-      try {
-        await dispose();
-      } catch {
-        // Ignore dispose errors during cleanup
-      }
-    }
+    await runDisposes(disposes);
     throw err;
   }
 }

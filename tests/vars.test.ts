@@ -135,6 +135,22 @@ describe('validateVarScope', () => {
     const config = {} as RillConfigFile;
     expect(validateVarScope(config)).toEqual([]);
   });
+
+  it('returns identical results across repeated calls (stateless regex)', () => {
+    // Regression: a global-flag regex used with .test() carries lastIndex
+    // between calls and skips matches on alternating invocations.
+    const config = {
+      name: '@{NAME_VAR}',
+      main: '@{MAIN_VAR}',
+    } as RillConfigFile;
+    const first = validateVarScope(config);
+    const second = validateVarScope(config);
+    const third = validateVarScope(config);
+    expect(second).toEqual(first);
+    expect(third).toEqual(first);
+    expect(first).toContain('name');
+    expect(first).toContain('main');
+  });
 });
 
 // ============================================================

@@ -3,11 +3,24 @@
  * Covers: HP-2, HP-3, EC-1 (AC-2, AC-3)
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ConfigNotFoundError, resolveConfigPath } from '@rcrsr/rill-config';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Partial-mock node:fs so `existsSync` can be overridden per-test for the
+// EC-1 walk-up tests. Default behavior is the real implementation, so the
+// HP-2 and HP-3 suites that write real fixture files keep working.
+const { realExistsSync } = await vi.hoisted(async () => {
+  const fs = await import('node:fs');
+  return { realExistsSync: fs.existsSync };
+});
+
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  return { ...actual, existsSync: vi.fn(actual.existsSync) };
+});
 
 // ============================================================
 // TEST HELPERS
@@ -106,9 +119,19 @@ describe('resolveConfigPath', () => {
 
     beforeEach(() => {
       tmpDir = createTmpDir('rill-resolve-err');
+      // Force any rill-config.json existence probe to return false so the
+      // ancestor walk reaches the filesystem root regardless of stray
+      // artifacts (e.g. /tmp/rill-config.json) left by other processes.
+      vi.mocked(existsSync).mockImplementation(((
+        p: Parameters<typeof existsSync>[0]
+      ) => {
+        if (basename(String(p)) === 'rill-config.json') return false;
+        return realExistsSync(p);
+      }) as typeof existsSync);
     });
 
     afterEach(() => {
+      vi.mocked(existsSync).mockReset();
       rmSync(tmpDir, { recursive: true, force: true });
     });
 

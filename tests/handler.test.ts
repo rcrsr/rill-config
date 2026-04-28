@@ -205,6 +205,25 @@ describe('marshalCliArgs', () => {
       const result = marshalCliArgs({ verbose: '' }, params);
       expect(result['verbose']).toBe(true);
     });
+
+    it('parses "true" string to true', () => {
+      const params = [makeParam('verbose', 'bool')];
+      const result = marshalCliArgs({ verbose: 'true' }, params);
+      expect(result['verbose']).toBe(true);
+    });
+
+    it('parses "false" string to false', () => {
+      const params = [makeParam('verbose', 'bool')];
+      const result = marshalCliArgs({ verbose: 'false' }, params);
+      expect(result['verbose']).toBe(false);
+    });
+
+    it('throws HandlerArgError for invalid bool string', () => {
+      const params = [makeParam('verbose', 'bool')];
+      expect(() => marshalCliArgs({ verbose: 'yes' }, params)).toThrow(
+        HandlerArgError
+      );
+    });
   });
 
   describe('type coercion: dict', () => {

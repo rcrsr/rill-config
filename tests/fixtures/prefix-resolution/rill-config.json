@@ -1,0 +1,8 @@
+{
+  "name": "prefix-resolution-fixture",
+  "extensions": {
+    "mounts": {
+      "test-ext": "@rcrsr/test-ext"
+    }
+  }
+}

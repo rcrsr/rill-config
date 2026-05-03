@@ -5,8 +5,10 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { resolve } from 'node:path';
 import {
   loadExtensions,
+  loadProject,
   ExtensionLoadError,
   ExtensionVersionError,
   NamespaceCollisionError,
@@ -632,6 +634,43 @@ describe('loadExtensions', () => {
       const result = await loadExtensions(mounts, {});
       expect(result.manifests.has('dual.a')).toBe(true);
       expect(result.manifests.has('dual.b')).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // prefix option: real bare-specifier resolution
+  // ============================================================
+
+  describe('prefix option', () => {
+    const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+
+    it('resolves bare specifier when prefix points to fixture node_modules', async () => {
+      // NOTES case #3: loadExtensions with prefix succeeds
+      const mounts = [makeMount('test-ext', '@rcrsr/test-ext')];
+      const result = await loadExtensions(mounts, {}, { prefix });
+      expect(result.manifests.has('test-ext')).toBe(true);
+    });
+
+    it('throws ExtensionLoadError for bare specifier without prefix', async () => {
+      // NOTES case #4: @rcrsr/test-ext is not in project root node_modules
+      const mounts = [makeMount('test-ext', '@rcrsr/test-ext')];
+      await expect(loadExtensions(mounts, {})).rejects.toThrow(
+        ExtensionLoadError
+      );
+    });
+
+    it('loadProject end-to-end resolves extension via prefix', async () => {
+      // NOTES case #5: full project load with prefix option
+      const configPath = resolve(
+        process.cwd(),
+        'tests/fixtures/prefix-resolution/rill-config.json'
+      );
+      const result = await loadProject({
+        configPath,
+        rillVersion: '999.0.0',
+        prefix,
+      });
+      expect(result.extTree).toHaveProperty('test-ext');
     });
   });
 });

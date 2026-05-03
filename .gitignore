@@ -10,6 +10,7 @@ src/**/*.d.ts.map
 
 # Dependencies
 node_modules/
+!tests/fixtures/**/node_modules/
 
 # Logs
 *.log

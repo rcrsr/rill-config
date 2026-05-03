@@ -49,14 +49,31 @@ validateContext(config.context, providedValues);
 import { resolveMounts, loadExtensions } from '@rcrsr/rill-config';
 
 const mounts = resolveMounts(config.extensions);
-const loaded = await loadExtensions(mounts, config.extensions);
+const loaded = await loadExtensions(mounts, config.extensions, {
+  prefix: '/path/to/project/.rill/npm',
+});
 ```
+
+**Signature:**
+
+```typescript
+loadExtensions(
+  mounts: ResolvedMount[],
+  config: Record<string, Record<string, unknown>>,
+  options?: {
+    prefix?: string;      // optional: absolute path to npm prefix directory; defaults to process.cwd()
+    signal?: AbortSignal;
+  }
+): Promise<LoadedProject>
+```
+
+**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Relative, absolute, and `file://` specifiers are unaffected by `prefix`.
 
 | Export | Purpose |
 |--------|---------|
 | `resolveMounts(extensions)` | Parse mount paths and package specifiers |
 | `detectNamespaceCollisions(mounts)` | Find conflicting mount paths |
-| `loadExtensions(mounts, extensions)` | Load and initialize extensions |
+| `loadExtensions(mounts, extensions, options)` | Load and initialize extensions |
 
 ### Bindings Generation
 
@@ -77,9 +94,26 @@ const ctxBindings = buildContextBindings(config.context);
 ```typescript
 import { loadProject } from '@rcrsr/rill-config';
 
-const project = await loadProject('/path/to/project');
+const project = await loadProject({
+  configPath: '/path/to/project/rill-config.json',
+  rillVersion: '0.19.0',
+  prefix: '/path/to/project/.rill/npm',
+});
 // project.config, project.extTree, project.resolverConfig, ...
 ```
+
+**Signature:**
+
+```typescript
+loadProject(options: {
+  configPath: string;   // absolute path to rill-config.json
+  rillVersion: string;  // semver version of the rill runtime
+  prefix?: string;      // optional: absolute path to npm prefix directory; defaults to process.cwd()
+  signal?: AbortSignal;
+}): Promise<ProjectResult>
+```
+
+**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Relative, absolute, and `file://` specifiers are unaffected by `prefix`.
 
 `loadProject` combines all steps: resolve config, validate, load extensions, build resolvers, and generate bindings.
 

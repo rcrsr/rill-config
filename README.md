@@ -48,10 +48,12 @@ validateContext(config.context, providedValues);
 ```typescript
 import { resolveMounts, loadExtensions } from '@rcrsr/rill-config';
 
-const mounts = resolveMounts(config.extensions);
-const loaded = await loadExtensions(mounts, config.extensions, {
-  prefix: '/path/to/project/.rill/npm',
-});
+const mounts = resolveMounts(config.extensions.mounts);
+const loaded = await loadExtensions(
+  mounts,
+  config.extensions.config ?? {},
+  { prefix: '/path/to/project/.rill/npm' },
+);
 ```
 
 **Signature:**
@@ -71,9 +73,9 @@ loadExtensions(
 
 | Export | Purpose |
 |--------|---------|
-| `resolveMounts(extensions)` | Parse mount paths and package specifiers |
+| `resolveMounts(mounts)` | Parse mount paths and package specifiers |
 | `detectNamespaceCollisions(mounts)` | Find conflicting mount paths |
-| `loadExtensions(mounts, extensions, options)` | Load and initialize extensions |
+| `loadExtensions(mounts, config, options)` | Load and initialize extensions |
 
 ### Bindings Generation
 

@@ -38,7 +38,7 @@ import type {
  * Bare specifiers resolve from the project directory via createRequire.
  * @internal
  */
-export function resolveSpecifier(specifier: string): string {
+export function resolveSpecifier(specifier: string, prefix?: string): string {
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
     return pathToFileURL(resolve(process.cwd(), specifier)).href;
   }
@@ -47,7 +47,7 @@ export function resolveSpecifier(specifier: string): string {
   }
   // Bare specifiers: resolve from project directory, not from this file's location
   const projectRequire = createRequire(
-    pathToFileURL(resolve(process.cwd(), 'package.json')).href
+    pathToFileURL(resolve(prefix ?? process.cwd(), 'package.json')).href
   );
   return pathToFileURL(projectRequire.resolve(specifier)).href;
 }
@@ -162,7 +162,8 @@ function linkSignal(parentSignal: AbortSignal | undefined): {
  * packages into a single error message; rethrows other import failures.
  */
 async function loadModules(
-  mounts: ResolvedMount[]
+  mounts: ResolvedMount[],
+  prefix?: string
 ): Promise<Map<string, Record<string, unknown>>> {
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
@@ -170,7 +171,7 @@ async function loadModules(
   for (const mount of mounts) {
     const pkg = mount.packageSpecifier;
     try {
-      const mod = (await import(resolveSpecifier(pkg))) as Record<
+      const mod = (await import(resolveSpecifier(pkg, prefix))) as Record<
         string,
         unknown
       >;
@@ -365,9 +366,9 @@ async function invokeFactories(
 export async function loadExtensions(
   mounts: ResolvedMount[],
   config: Record<string, Record<string, unknown>>,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal; prefix?: string }
 ): Promise<LoadedProject> {
-  const modules = await loadModules(mounts);
+  const modules = await loadModules(mounts, options?.prefix);
   const manifests = validateManifests(mounts, modules);
   detectNamespaceCollisions(mounts);
   assertNoOrphanConfigKeys(config, mounts);

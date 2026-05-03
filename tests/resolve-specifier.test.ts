@@ -55,4 +55,21 @@ describe('resolveSpecifier', () => {
       expect(() => resolveSpecifier('@nonexistent/pkg-xyz')).toThrow();
     });
   });
+
+  describe('with prefix anchor', () => {
+    it('resolves bare specifier from cwd when prefix is undefined', () => {
+      const withoutPrefix = resolveSpecifier('semver');
+      const withUndefined = resolveSpecifier('semver', undefined);
+      expect(withUndefined).toBe(withoutPrefix);
+    });
+
+    it('resolves bare specifier from prefix directory', () => {
+      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const result = resolveSpecifier('@rcrsr/test-ext', prefix);
+      expect(result.startsWith('file://')).toBe(true);
+      expect(result).toContain(
+        'prefix-resolution/node_modules/@rcrsr/test-ext'
+      );
+    });
+  });
 });

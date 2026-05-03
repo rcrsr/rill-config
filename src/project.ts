@@ -36,8 +36,10 @@ export async function loadProject(options: {
    * cleanup via `signal.addEventListener('abort', ...)` tear down.
    */
   signal?: AbortSignal;
+  /** Optional key prefix forwarded to loadExtensions. */
+  prefix?: string;
 }): Promise<ProjectResult> {
-  const { configPath, rillVersion, signal } = options;
+  const { configPath, rillVersion, signal, prefix } = options;
 
   // Step 1: Read config file
   let raw: string;
@@ -76,7 +78,10 @@ export async function loadProject(options: {
         string,
         Record<string, unknown>
       >,
-      signal !== undefined ? { signal } : {}
+      {
+        ...(signal !== undefined ? { signal } : {}),
+        ...(prefix !== undefined ? { prefix } : {}),
+      }
     );
     extTree = loaded.extTree;
     disposes = loaded.disposes;

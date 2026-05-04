@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `loader`: classify transitive `ERR_MODULE_NOT_FOUND` separately from a missing entrypoint package. The error message now names the actual missing specifier and the importing file, and includes a hint pointing at `<projectRoot>/.rill/npm/node_modules/` when that install location exists. Previously, a transitive import failure inside a project-relative `.ts` extension was reported as if the entrypoint itself were missing (`Cannot find packages: ./extensions/foo.ts`).
+- `loader`: classify transitive `ERR_MODULE_NOT_FOUND` separately from a missing entrypoint package. The error message now names the actual missing specifier and the importing file, and includes a hint pointing at `<projectRoot>/.rill/npm/node_modules/` when that install location exists. Both kinds of misses are aggregated into a single error so a transitive miss late in the mount list does not silently drop earlier entrypoint misses. Previously, a transitive import failure inside a project-relative `.ts` extension was reported as if the entrypoint itself were missing (`Cannot find packages: ./extensions/foo.ts`).
 - `loader`: `ExtensionVersionError` message now includes the mount path, the install range, and a stale-`VERSION`-constant hint, so users can distinguish an upstream-published manifest with a hardcoded `VERSION` from a genuinely incompatible install.
 
 ## [0.19.1] - 2026-05-03

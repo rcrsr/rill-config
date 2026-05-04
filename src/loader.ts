@@ -109,20 +109,27 @@ function isEntrypointMiss(pkg: string, parsedSpecifier: string): boolean {
 /**
  * Walk up from `start` looking for a directory containing
  * `.rill/npm/node_modules/<specifier-root>`. Returns that directory (the
- * project root) or undefined. Bounded by `prefix` if provided, otherwise
- * walks to the filesystem root.
+ * project root) or undefined. Walks to the filesystem root; bounded
+ * naturally by directory depth (≈20 iters in any realistic tree).
+ *
+ * Returns undefined for non-bare specifiers (relative paths, absolute
+ * paths, file:// URLs). Those are missing local files, not missing npm
+ * deps, and pointing the user at .rill/npm/ would be misleading.
  */
-function findRillNpmRoot(
-  start: string,
-  specifier: string,
-  prefix: string | undefined
-): string | undefined {
+function findRillNpmRoot(start: string, specifier: string): string | undefined {
+  if (
+    specifier.startsWith('.') ||
+    specifier.startsWith('/') ||
+    specifier.startsWith('file://')
+  ) {
+    return undefined;
+  }
   // Resolve the install root for scoped (@scope/name) and unscoped names.
   const segments = specifier.split('/');
   const installRoot = specifier.startsWith('@')
     ? segments.slice(0, 2).join('/')
     : segments[0]!;
-  const ceiling = prefix !== undefined ? resolve(prefix) : undefined;
+  if (installRoot === '') return undefined;
 
   let current = resolve(start);
   while (true) {
@@ -134,7 +141,6 @@ function findRillNpmRoot(
       installRoot
     );
     if (existsSync(candidate)) return current;
-    if (ceiling !== undefined && current === ceiling) return undefined;
     const parent = dirname(current);
     if (parent === current) return undefined;
     current = parent;
@@ -250,6 +256,7 @@ async function loadModules(
 ): Promise<Map<string, Record<string, unknown>>> {
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
+  const transitiveMisses: string[] = [];
 
   for (const mount of mounts) {
     const pkg = mount.packageSpecifier;
@@ -269,36 +276,51 @@ async function loadModules(
         // Transitive miss: a dependency of the loaded extension is missing.
         // Surface the real specifier and importing file so users do not
         // mistake this for the entrypoint itself being unavailable.
-        const parentPath =
-          parsed.parent !== undefined && parsed.parent.startsWith('file://')
-            ? fileURLToPath(parsed.parent)
-            : parsed.parent;
-        const hintRoot =
-          parentPath !== undefined
-            ? findRillNpmRoot(dirname(parentPath), parsed.specifier, prefix)
-            : undefined;
-        const where =
-          parentPath !== undefined ? ` (imported from ${parentPath})` : '';
-        const hint =
-          hintRoot !== undefined
-            ? ` Hint: dep is installed under ${join(hintRoot, '.rill', 'npm', 'node_modules')}/. Either symlink node_modules at the project root (\`ln -sfn .rill/npm/node_modules node_modules\`) or install the dep into .rill/npm/ (\`cd .rill/npm && npm install ${parsed.specifier}\`).`
-            : '';
-        throw new ExtensionLoadError(
-          `Failed to load ${pkg}: cannot find transitive dependency '${parsed.specifier}'${where}.${hint}`
-        );
+        transitiveMisses.push(buildTransitiveMissMessage(pkg, parsed));
+        continue;
       }
       const reason = err instanceof Error ? err.message : String(err);
       throw new ExtensionLoadError(`Failed to load ${pkg}: ${reason}`);
     }
   }
 
-  if (missingPackages.length > 0) {
-    throw new ExtensionLoadError(
-      `Cannot find packages: ${missingPackages.join(', ')}`
-    );
+  if (missingPackages.length > 0 || transitiveMisses.length > 0) {
+    const parts: string[] = [];
+    if (missingPackages.length > 0) {
+      parts.push(`Cannot find packages: ${missingPackages.join(', ')}`);
+    }
+    parts.push(...transitiveMisses);
+    throw new ExtensionLoadError(parts.join('\n'));
   }
 
   return modules;
+}
+
+/**
+ * Build the per-mount message for a transitive `ERR_MODULE_NOT_FOUND`.
+ * The missing specifier is interpolated only into prose — never into a
+ * shell snippet — to avoid producing a copy-pastable command that runs
+ * something different from what is suggested.
+ */
+function buildTransitiveMissMessage(
+  pkg: string,
+  parsed: { specifier: string; parent: string | undefined }
+): string {
+  const parentPath =
+    parsed.parent !== undefined && parsed.parent.startsWith('file://')
+      ? fileURLToPath(parsed.parent)
+      : parsed.parent;
+  const hintRoot =
+    parentPath !== undefined
+      ? findRillNpmRoot(dirname(parentPath), parsed.specifier)
+      : undefined;
+  const where =
+    parentPath !== undefined ? ` (imported from ${parentPath})` : '';
+  const hint =
+    hintRoot !== undefined
+      ? ` Hint: that dep is installed under ${join(hintRoot, '.rill', 'npm', 'node_modules')}/. Symlink node_modules at the project root (\`ln -sfn .rill/npm/node_modules node_modules\`) or install it under .rill/npm/.`
+      : '';
+  return `Failed to load ${pkg}: cannot find transitive dependency '${parsed.specifier}'${where}.${hint}`;
 }
 
 /**
@@ -332,7 +354,7 @@ function validateManifests(
         !semver.satisfies(installedVersion, mount.versionConstraint)
       ) {
         throw new ExtensionVersionError(
-          `Extension ${pkg} (mounted at "${mount.mountPath}") reports manifest.version "${installedVersion}", which does not satisfy install range "${mount.versionConstraint}". If the on-disk package version differs from manifest.version, the published VERSION constant is stale; reinstall with --range '*' to bypass, or report upstream.`
+          `Extension ${pkg} (mounted at "${mount.mountPath}") reports manifest.version "${installedVersion}", which does not satisfy install range "${mount.versionConstraint}". If the on-disk package version differs from manifest.version, the published VERSION constant is stale; widen this mount's install range (e.g., "*") to bypass, or report the stale VERSION upstream.`
         );
       }
     }

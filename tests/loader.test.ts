@@ -534,24 +534,43 @@ describe('loadExtensions', () => {
     });
 
     it('error message includes rill-npm hint when dep directory exists under .rill/npm/node_modules', async () => {
-      // This test exercises the hintRoot !== undefined branch in loadModules.
-      // The fixture file lives under tests/fixtures/rill-npm-hint/extensions/ so
-      // findRillNpmRoot walks up and finds .rill/npm/node_modules/fake-hinted-dep
-      // at tests/fixtures/rill-npm-hint/.
+      // findRillNpmRoot walks up from the importing file's directory and
+      // finds .rill/npm/node_modules/fake-hinted-dep at tests/fixtures/
+      // rill-npm-hint/. The walk is independent of the loadExtensions
+      // `prefix` option (which anchors createRequire for bare entrypoints,
+      // not the hint search), so the test does not pass prefix at all.
       const hintedFixture = resolve(
         process.cwd(),
         'tests/fixtures/rill-npm-hint/extensions/hinted-dep.mjs'
       );
       const mounts = [makeMount('hm', hintedFixture)];
-      const prefix = resolve(process.cwd(), 'tests/fixtures/rill-npm-hint');
       try {
-        await loadExtensions(mounts, {}, { prefix });
+        await loadExtensions(mounts, {});
         throw new Error('expected loadExtensions to reject');
       } catch (err) {
         expect(err).toBeInstanceOf(ExtensionLoadError);
         const msg = (err as Error).message;
         expect(msg).toContain('Hint:');
         expect(msg).toContain('.rill/npm/node_modules');
+      }
+    });
+
+    it('aggregates entrypoint and transitive misses into a single error', async () => {
+      // Regression guard for the previous behavior of throwing on the
+      // first transitive miss while silently dropping any pending
+      // entrypoint misses.
+      const mounts = [
+        makeMount('a', '@nonexistent/rill-ext-aggregate-99999'),
+        makeMount('tm', transitiveFixture),
+      ];
+      try {
+        await loadExtensions(mounts, {});
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('@nonexistent/rill-ext-aggregate-99999');
+        expect(msg).toContain('fake-transitive-dep-rcrsr-test');
       }
     });
   });

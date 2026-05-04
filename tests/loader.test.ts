@@ -479,6 +479,81 @@ describe('loadExtensions', () => {
       const mounts = [makeMount('vok', '/fake/ext/version-ok', '^1.0.0')];
       await expect(loadExtensions(mounts, {})).resolves.toBeDefined();
     });
+
+    it('error message includes mount path, versions, and stale-VERSION hint', async () => {
+      const mounts = [
+        makeMount('vext', '/fake/ext/version-mismatch', '^2.0.0'),
+      ];
+      try {
+        await loadExtensions(mounts, {});
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionVersionError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('/fake/ext/version-mismatch');
+        expect(msg).toContain('"vext"');
+        expect(msg).toContain('"1.0.0"');
+        expect(msg).toContain('"^2.0.0"');
+        expect(msg).toContain('published VERSION constant is stale');
+      }
+    });
+  });
+
+  // ============================================================
+  // EC-7 (transitive): missing transitive dep is reported
+  // separately from a missing entrypoint package
+  // ============================================================
+
+  describe('EC-7 (transitive dependency): ERR_MODULE_NOT_FOUND surfaces underlying specifier', () => {
+    const transitiveFixture = resolve(
+      process.cwd(),
+      'tests/fixtures/transitive-miss.mjs'
+    );
+
+    it('throws ExtensionLoadError naming the missing transitive specifier', async () => {
+      const mounts = [makeMount('tm', transitiveFixture)];
+      await expect(loadExtensions(mounts, {})).rejects.toThrow(
+        ExtensionLoadError
+      );
+    });
+
+    it('error message names the transitive dep and the importing file', async () => {
+      const mounts = [makeMount('tm', transitiveFixture)];
+      try {
+        await loadExtensions(mounts, {});
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('fake-transitive-dep-rcrsr-test');
+        expect(msg).toContain('transitive-miss.mjs');
+        expect(msg).toContain('cannot find transitive dependency');
+        // Regression guard: must not be misclassified as the entrypoint.
+        expect(msg).not.toContain(`Cannot find packages: ${transitiveFixture}`);
+      }
+    });
+
+    it('error message includes rill-npm hint when dep directory exists under .rill/npm/node_modules', async () => {
+      // This test exercises the hintRoot !== undefined branch in loadModules.
+      // The fixture file lives under tests/fixtures/rill-npm-hint/extensions/ so
+      // findRillNpmRoot walks up and finds .rill/npm/node_modules/fake-hinted-dep
+      // at tests/fixtures/rill-npm-hint/.
+      const hintedFixture = resolve(
+        process.cwd(),
+        'tests/fixtures/rill-npm-hint/extensions/hinted-dep.mjs'
+      );
+      const mounts = [makeMount('hm', hintedFixture)];
+      const prefix = resolve(process.cwd(), 'tests/fixtures/rill-npm-hint');
+      try {
+        await loadExtensions(mounts, {}, { prefix });
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('Hint:');
+        expect(msg).toContain('.rill/npm/node_modules');
+      }
+    });
   });
 
   // ============================================================

@@ -4,9 +4,10 @@
  * and builds the nested extension config tree.
  */
 
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { isAbsolute, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import semver from 'semver';
 import {
   isApplicationCallable,
@@ -56,6 +57,88 @@ function isModuleNotFoundError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const code = (err as { code?: string }).code;
   return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND';
+}
+
+/**
+ * Extract the missing specifier and (when present) the importing parent
+ * from a Node `ERR_MODULE_NOT_FOUND` / `MODULE_NOT_FOUND` error message.
+ * Both ESM and CJS forms are accepted:
+ *   - ESM:  Cannot find package 'X' imported from /abs/parent.js
+ *   - ESM:  Cannot find module '/abs/X.js' imported from /abs/parent.js
+ *   - CJS:  Cannot find module 'X'
+ */
+function parseModuleNotFoundError(
+  err: Error
+): { specifier: string; parent: string | undefined } | undefined {
+  const match =
+    /Cannot find (?:package|module) ['"]([^'"]+)['"](?:\s+imported from\s+(\S+))?/.exec(
+      err.message
+    );
+  if (match === null) return undefined;
+  return { specifier: match[1]!, parent: match[2] };
+}
+
+/**
+ * True when a parsed missing specifier refers to the same module as the
+ * mount's `packageSpecifier` (the entrypoint we tried to load), accounting
+ * for relative-vs-absolute and file:// vs path forms.
+ *
+ * Known limitation: if a bare `pkg` resolves successfully via `createRequire`
+ * but the resolved file itself is missing on disk, the parsed specifier is
+ * an absolute path while `pkg` is the bare name. This case is misclassified
+ * as transitive. Rare in practice (broken install) and surfaces a still-useful
+ * message; a real fix needs the resolved URL alongside the bare specifier.
+ */
+function isEntrypointMiss(pkg: string, parsedSpecifier: string): boolean {
+  if (parsedSpecifier === pkg) return true;
+  const pkgIsPath =
+    pkg.startsWith('./') ||
+    pkg.startsWith('../') ||
+    isAbsolute(pkg) ||
+    pkg.startsWith('file://');
+  if (!pkgIsPath) return false;
+  const pkgAbs = pkg.startsWith('file://')
+    ? fileURLToPath(pkg)
+    : resolve(process.cwd(), pkg);
+  let specAbs = parsedSpecifier;
+  if (specAbs.startsWith('file://')) specAbs = fileURLToPath(specAbs);
+  if (!isAbsolute(specAbs)) return false;
+  return resolve(specAbs) === pkgAbs;
+}
+
+/**
+ * Walk up from `start` looking for a directory containing
+ * `.rill/npm/node_modules/<specifier-root>`. Returns that directory (the
+ * project root) or undefined. Bounded by `prefix` if provided, otherwise
+ * walks to the filesystem root.
+ */
+function findRillNpmRoot(
+  start: string,
+  specifier: string,
+  prefix: string | undefined
+): string | undefined {
+  // Resolve the install root for scoped (@scope/name) and unscoped names.
+  const segments = specifier.split('/');
+  const installRoot = specifier.startsWith('@')
+    ? segments.slice(0, 2).join('/')
+    : segments[0]!;
+  const ceiling = prefix !== undefined ? resolve(prefix) : undefined;
+
+  let current = resolve(start);
+  while (true) {
+    const candidate = join(
+      current,
+      '.rill',
+      'npm',
+      'node_modules',
+      installRoot
+    );
+    if (existsSync(candidate)) return current;
+    if (ceiling !== undefined && current === ceiling) return undefined;
+    const parent = dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
 }
 
 /**
@@ -178,8 +261,31 @@ async function loadModules(
       modules.set(mount.mountPath, mod);
     } catch (err) {
       if (isModuleNotFoundError(err)) {
-        missingPackages.push(pkg);
-        continue;
+        const parsed = parseModuleNotFoundError(err as Error);
+        if (parsed === undefined || isEntrypointMiss(pkg, parsed.specifier)) {
+          missingPackages.push(pkg);
+          continue;
+        }
+        // Transitive miss: a dependency of the loaded extension is missing.
+        // Surface the real specifier and importing file so users do not
+        // mistake this for the entrypoint itself being unavailable.
+        const parentPath =
+          parsed.parent !== undefined && parsed.parent.startsWith('file://')
+            ? fileURLToPath(parsed.parent)
+            : parsed.parent;
+        const hintRoot =
+          parentPath !== undefined
+            ? findRillNpmRoot(dirname(parentPath), parsed.specifier, prefix)
+            : undefined;
+        const where =
+          parentPath !== undefined ? ` (imported from ${parentPath})` : '';
+        const hint =
+          hintRoot !== undefined
+            ? ` Hint: dep is installed under ${join(hintRoot, '.rill', 'npm', 'node_modules')}/. Either symlink node_modules at the project root (\`ln -sfn .rill/npm/node_modules node_modules\`) or install the dep into .rill/npm/ (\`cd .rill/npm && npm install ${parsed.specifier}\`).`
+            : '';
+        throw new ExtensionLoadError(
+          `Failed to load ${pkg}: cannot find transitive dependency '${parsed.specifier}'${where}.${hint}`
+        );
       }
       const reason = err instanceof Error ? err.message : String(err);
       throw new ExtensionLoadError(`Failed to load ${pkg}: ${reason}`);
@@ -226,7 +332,7 @@ function validateManifests(
         !semver.satisfies(installedVersion, mount.versionConstraint)
       ) {
         throw new ExtensionVersionError(
-          `${pkg} v${installedVersion} does not satisfy ${mount.versionConstraint}`
+          `Extension ${pkg} (mounted at "${mount.mountPath}") reports manifest.version "${installedVersion}", which does not satisfy install range "${mount.versionConstraint}". If the on-disk package version differs from manifest.version, the published VERSION constant is stale; reinstall with --range '*' to bypass, or report upstream.`
         );
       }
     }

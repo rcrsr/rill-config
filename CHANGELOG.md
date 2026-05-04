@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `loader`: classify transitive `ERR_MODULE_NOT_FOUND` separately from a missing entrypoint package. The error message now names the actual missing specifier and the importing file, and includes a hint pointing at `<projectRoot>/.rill/npm/node_modules/` when that install location exists. Previously, a transitive import failure inside a project-relative `.ts` extension was reported as if the entrypoint itself were missing (`Cannot find packages: ./extensions/foo.ts`).
+- `loader`: `ExtensionVersionError` message now includes the mount path, the install range, and a stale-`VERSION`-constant hint, so users can distinguish an upstream-published manifest with a hardcoded `VERSION` from a genuinely incompatible install.
+
 ## [0.19.1] - 2026-05-03
 
 ### Added

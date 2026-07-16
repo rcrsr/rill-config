@@ -136,6 +136,14 @@ describe('parseConfig', () => {
         'Field host: expected object, got string'
       );
     });
+
+    it('reports "null", not "object", for a null top-level block', () => {
+      const raw = JSON.stringify({ host: null });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field host: expected object, got null'
+      );
+    });
   });
 
   describe('nested field validation', () => {
@@ -181,6 +189,19 @@ describe('parseConfig', () => {
       });
 
       expect(() => parseConfig(raw)).toThrow('Field context.schema.token.type');
+    });
+
+    it('reports "null", not "object", for a null schema entry', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { token: null },
+          values: { token: 'abc' },
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field context.schema.token: expected object, got null'
+      );
     });
 
     it('throws ConfigValidationError when a modules entry has a non-string value', () => {

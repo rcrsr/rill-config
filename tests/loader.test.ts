@@ -240,8 +240,13 @@ vi.mock('/fake/ext/validation-order-side-effect', () => {
   };
 });
 
-// Aggregation ordering: two mounts whose modules both fail as
-// ERR_MODULE_NOT_FOUND, used to assert mount-order-stable error text.
+// Prototype-pollution regression: factory returns a plain string value to
+// be mounted under a "__proto__"-prefixed dot-path.
+vi.mock('/fake/ext/proto-pollution', () => ({
+  extensionManifest: {
+    factory: () => ({ value: 'PWNED' }),
+  },
+}));
 
 // ============================================================
 // TEST HELPERS
@@ -719,14 +724,14 @@ describe('loadExtensions', () => {
   });
 
   // ============================================================
-  // Aggregation ordering: concurrent imports preserve mount order
+  // Aggregation ordering: two mount failures report in mount order
   // ============================================================
 
-  describe('loadModules aggregation: mount-order-stable error text under concurrency', () => {
-    it('lists two missing packages in mount order regardless of import completion order', async () => {
+  describe('aggregation ordering: two mount failures report in mount order', () => {
+    it('lists two missing packages in mount order', async () => {
       const mounts = [
-        makeMount('a', '@nonexistent/rill-ext-concurrent-a-99999'),
-        makeMount('b', '@nonexistent/rill-ext-concurrent-b-99999'),
+        makeMount('a', '@nonexistent/rill-ext-order-a-99999'),
+        makeMount('b', '@nonexistent/rill-ext-order-b-99999'),
       ];
       try {
         await loadExtensions(mounts, {});
@@ -735,9 +740,46 @@ describe('loadExtensions', () => {
         expect(err).toBeInstanceOf(ExtensionLoadError);
         const msg = (err as Error).message;
         expect(msg).toBe(
-          'Cannot find packages: @nonexistent/rill-ext-concurrent-a-99999, @nonexistent/rill-ext-concurrent-b-99999'
+          'Cannot find packages: @nonexistent/rill-ext-order-a-99999, @nonexistent/rill-ext-order-b-99999'
         );
       }
+    });
+  });
+
+  // ============================================================
+  // Prototype-pollution defense in depth: mountValue never writes
+  // through a "__proto__" segment, even when a mount path bypasses
+  // resolveMounts's segment validation.
+  // ============================================================
+
+  describe('mountValue: null-prototype intermediates block prototype pollution', () => {
+    it('does not pollute Object.prototype for a "__proto__"-prefixed mount path', async () => {
+      const mounts: ResolvedMount[] = [
+        {
+          mountPath: '__proto__.polluted',
+          packageSpecifier: '/fake/ext/proto-pollution',
+        },
+      ];
+      await loadExtensions(mounts, {});
+      expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    });
+
+    it('does not pollute Object.prototype when "__proto__" is an intermediate segment', async () => {
+      // 3+ segments, "__proto__" NOT at position 0: this walks through an
+      // intermediate dict node created inside mountValue's loop, exercising
+      // that node's Object.create(null) hardening specifically (distinct
+      // from the root-tree case above).
+      const mounts: ResolvedMount[] = [
+        {
+          mountPath: 'a.__proto__.polluted',
+          packageSpecifier: '/fake/ext/proto-pollution',
+        },
+      ];
+      await loadExtensions(mounts, {});
+      expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+      expect(
+        (Object.prototype as unknown as Record<string, unknown>)['polluted']
+      ).toBeUndefined();
     });
   });
 });

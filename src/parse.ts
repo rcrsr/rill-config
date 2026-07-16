@@ -1,6 +1,17 @@
 import type { RillConfigFile } from './types.js';
 import { ConfigParseError, ConfigValidationError } from './errors.js';
 
+/**
+ * Describe a value's shape for error messages. `typeof null === 'object'`
+ * and `Array.isArray(null) === false`, so plain `typeof`/`Array.isArray`
+ * misreport `null` as `"object"`; this reports `"null"` instead.
+ */
+function describeType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
 function assertOptionalString(field: string, value: unknown): void {
   if (value !== undefined && typeof value !== 'string') {
     throw new ConfigValidationError(
@@ -15,7 +26,7 @@ function assertOptionalObject(field: string, value: unknown): void {
     (typeof value !== 'object' || value === null || Array.isArray(value))
   ) {
     throw new ConfigValidationError(
-      `Field ${field}: expected object, got ${Array.isArray(value) ? 'array' : typeof value}`
+      `Field ${field}: expected object, got ${describeType(value)}`
     );
   }
 }
@@ -51,7 +62,7 @@ function assertObjectOfStrings(field: string, value: unknown): void {
 function assertSchemaEntry(field: string, value: unknown): void {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new ConfigValidationError(
-      `Field ${field}: expected object, got ${Array.isArray(value) ? 'array' : typeof value}`
+      `Field ${field}: expected object, got ${describeType(value)}`
     );
   }
   const entry = value as Record<string, unknown>;

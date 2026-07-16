@@ -184,13 +184,16 @@ function mountValue(
     return;
   }
 
-  // Dot-path: create intermediate dict nodes
+  // Dot-path: create intermediate dict nodes. Intermediates use a
+  // null-prototype object so a segment like "__proto__" (should it ever
+  // slip past validateMountPath) cannot resolve to Object.prototype
+  // instead of undefined and let the walk descend into it.
   let node: Record<string, RillValue> = tree;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]!;
     const existing = node[part];
     if (existing === undefined) {
-      const intermediate: Record<string, RillValue> = {};
+      const intermediate: Record<string, RillValue> = Object.create(null);
       node[part] = intermediate as unknown as RillValue;
     } else if (
       typeof existing !== 'object' ||
@@ -255,12 +258,14 @@ async function loadModules(
   mounts: ResolvedMount[],
   prefix?: string
 ): Promise<Map<string, Record<string, unknown>>> {
-  // NOTE: imports are intentionally sequential, not concurrent. A
-  // Promise.all-based rewrite was attempted and reverted: concurrent
-  // `import()` calls resolving to the same specifier race against each
-  // other's module-registry registration and can spuriously report one of
-  // the two as not-found. Aggregation stays mount-order-stable as a
-  // consequence of the sequential loop, with no reordering logic needed.
+  // NOTE: imports run sequentially to keep the aggregated
+  // `Cannot find packages: ...` error text in stable mount order via a
+  // plain append-as-you-go loop, with no reordering logic needed; this is
+  // not required for correctness of the imports themselves (order-preserving
+  // aggregation only needs an index-tagged Promise.allSettled, not serial
+  // execution). The real cost of the current design: N sequential dynamic
+  // imports on the startup path, so load latency is the sum of per-mount
+  // import latency rather than the max.
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
   const transitiveMisses: string[] = [];
@@ -418,7 +423,14 @@ async function invokeFactories(
   config: Record<string, Record<string, unknown>>,
   parentSignal: AbortSignal | undefined
 ): Promise<FactoryRunResult> {
-  const tree: Record<string, RillValue> = {};
+  // Null-prototype root: a mount path segment literally named "__proto__"
+  // would otherwise resolve `tree['__proto__']` to the real Object.prototype
+  // via the special accessor plain objects expose for that key, letting
+  // mountValue's walk descend into (and write onto) it. See mountValue.
+  const tree: Record<string, RillValue> = Object.create(null) as Record<
+    string,
+    RillValue
+  >;
   const disposes: Array<() => void | Promise<void>> = [];
   const errorCodes = new Map<string, string>();
 

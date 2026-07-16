@@ -9,12 +9,22 @@ import type { ResolvedMount } from './types.js';
 
 const SEGMENT_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+// Segment names that would let mountValue's dict-node walk reach the
+// object prototype (e.g. node['__proto__'] returns Object.prototype
+// instead of undefined for a plain object).
+const RESERVED_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function validateMountPath(mountPath: string): void {
   if (!mountPath) {
     throw new MountValidationError('Mount path is empty');
   }
   const segments = mountPath.split('.');
   for (const segment of segments) {
+    if (RESERVED_SEGMENTS.has(segment)) {
+      throw new MountValidationError(
+        `Reserved segment: ${segment} in ${mountPath}`
+      );
+    }
     if (!SEGMENT_PATTERN.test(segment)) {
       throw new MountValidationError(
         `Invalid segment: ${segment} in ${mountPath}`

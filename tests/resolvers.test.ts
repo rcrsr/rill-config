@@ -2,8 +2,7 @@
  * Tests for buildResolvers
  */
 
-import { buildResolvers } from '@rcrsr/rill-config';
-import { ResolverError } from '../src/errors.js';
+import { buildResolvers, ResolverError } from '@rcrsr/rill-config';
 import {
   isApplicationCallable,
   structureToTypeValue,
@@ -153,6 +152,58 @@ describe('buildResolvers', () => {
         const moduleResolver = result.resolvers['module'];
         expect(() => moduleResolver!('lib.')).toThrow(ResolverError);
         expect(() => moduleResolver!('lib.')).toThrow(/lib\./);
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('throws ResolverError for a segment containing an absolute path', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        expect(() => moduleResolver!('lib./etc/passwd')).toThrow(ResolverError);
+        expect(() => moduleResolver!('lib./etc/passwd')).toThrow(
+          /escapes module directory/
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('throws ResolverError for a ..-based traversal segment', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        // A literal ".." can never survive as a segment: splitting on "."
+        // always yields an empty segment wherever ".." appears, so the
+        // pre-existing empty-segment guard rejects this before the
+        // containment check ever runs. Both defenses agree: reject.
+        const resource = 'lib.sub/../../../etc/passwd';
+        expect(() => moduleResolver!(resource)).toThrow(ResolverError);
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('resolves a legitimate nested dot-path within the module directory', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      fs.mkdirSync(path.join(dir, 'sub'));
+      fs.writeFileSync(path.join(dir, 'sub', 'mod.rill'), '"nested module"');
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        const resolution = await moduleResolver!('lib.sub.mod');
+        expect(resolution).toEqual(
+          expect.objectContaining({ kind: 'source', text: '"nested module"' })
+        );
       } finally {
         fs.rmSync(dir, { recursive: true });
       }

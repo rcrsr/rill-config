@@ -3,7 +3,7 @@
  * Builds the ResolverConfig used by RuntimeOptions.
  */
 
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import {
   contextResolver,
   extResolver,
@@ -65,6 +65,14 @@ export function buildResolvers(options: {
         ? subPath.replaceAll('.', '/') + '.rill'
         : 'index.rill';
     const filePath = resolve(dirPath, relPath);
+
+    if (filePath !== dirPath && !filePath.startsWith(dirPath + sep)) {
+      throw new ResolverError(
+        `Module path escapes module directory: ${resource}`,
+        'module',
+        undefined
+      );
+    }
 
     return moduleResolver(resource, { [resource]: filePath });
   };

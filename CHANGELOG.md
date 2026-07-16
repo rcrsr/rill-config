@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Relative mount resolution:** Relative specifiers resolve against the `prefix` option, and `loadProject` defaults `prefix` to the config file's directory, matching `modules`. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Relative mount resolution:** Relative specifiers resolve against the `prefix` option, and `loadProject` defaults `prefix` to the config file's directory, matching `modules`. Bare-specifier (npm) resolution also re-anchors from `process.cwd()` to the config directory for `loadProject` callers who omit `prefix`, since it uses the same `prefix` default. ([#10](https://github.com/rcrsr/rill-config/pull/10))
 - **Validation ordering:** Namespace-collision and orphan-key validation runs before any mount package is imported, so failures no longer execute extension module code. ([#10](https://github.com/rcrsr/rill-config/pull/10))
 - **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes. ([#9](https://github.com/rcrsr/rill-config/pull/9))
 - **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix. ([#9](https://github.com/rcrsr/rill-config/pull/9))

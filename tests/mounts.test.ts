@@ -158,6 +158,35 @@ describe('resolveMounts', () => {
       const result = resolveMounts({ fs: '@scope/pkg@>=1.0.0 <2.0.0' });
       expect(result[0]?.versionConstraint).toBe('>=1.0.0 <2.0.0');
     });
+
+    it('throws MountValidationError for a "__proto__" segment', () => {
+      // Computed key: an object-literal `{ __proto__: ... }` sets the
+      // prototype instead of creating an own property.
+      expect(() => resolveMounts({ ['__proto__']: '@scope/pkg' })).toThrowError(
+        MountValidationError
+      );
+      expect(() =>
+        resolveMounts({ 'ext.__proto__': '@scope/pkg' })
+      ).toThrowError('Reserved segment: __proto__ in ext.__proto__');
+    });
+
+    it('throws MountValidationError for a "constructor" segment', () => {
+      expect(() =>
+        resolveMounts({ 'ext.constructor': '@scope/pkg' })
+      ).toThrowError(MountValidationError);
+      expect(() =>
+        resolveMounts({ 'ext.constructor': '@scope/pkg' })
+      ).toThrowError('Reserved segment: constructor in ext.constructor');
+    });
+
+    it('throws MountValidationError for a "prototype" segment', () => {
+      expect(() =>
+        resolveMounts({ 'ext.prototype': '@scope/pkg' })
+      ).toThrowError(MountValidationError);
+      expect(() =>
+        resolveMounts({ 'ext.prototype': '@scope/pkg' })
+      ).toThrowError('Reserved segment: prototype in ext.prototype');
+    });
   });
 });
 

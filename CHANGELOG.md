@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Config parsing:** `parseConfig` deep-validates config structure and throws `ConfigValidationError` with a field path instead of a raw `TypeError`. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Mount specifiers:** Absolute and `file://` specifiers containing `@` are no longer mis-split; version ranges are validated with `semver.validRange` at `resolveMounts` time. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Module resolver:** The `module:` scheme rejects dot-paths with empty segments, which could previously resolve outside the configured module directory. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Context validation:** `validateContext` rejects `NaN` and `±Infinity` for `number`-typed fields, which previously produced invalid rill literals. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Error reporting:** All `ConfigError` subclasses now report their class name in `error.name` and stack traces. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Documentation:** `ResolverError` now appears in the README error-class table. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+
 ### Changed
 
+- **Relative mount resolution:** Relative specifiers resolve against the `prefix` option, and `loadProject` defaults `prefix` to the config file's directory, matching `modules`. Bare-specifier (npm) resolution also re-anchors from `process.cwd()` to the config directory for `loadProject` callers who omit `prefix`, since it uses the same `prefix` default. ([#10](https://github.com/rcrsr/rill-config/pull/10))
+- **Validation ordering:** Namespace-collision and orphan-key validation runs before any mount package is imported, so failures no longer execute extension module code. ([#10](https://github.com/rcrsr/rill-config/pull/10))
 - **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes. ([#9](https://github.com/rcrsr/rill-config/pull/9))
 - **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix. ([#9](https://github.com/rcrsr/rill-config/pull/9))
 

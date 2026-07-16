@@ -136,6 +136,129 @@ describe('parseConfig', () => {
         'Field host: expected object, got string'
       );
     });
+
+    it('reports "null", not "object", for a null top-level block', () => {
+      const raw = JSON.stringify({ host: null });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field host: expected object, got null'
+      );
+    });
+  });
+
+  describe('nested field validation', () => {
+    it('throws ConfigValidationError when extensions is present without mounts', () => {
+      const raw = JSON.stringify({ extensions: {} });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+      expect(() => parseConfig(raw)).toThrow('Field extensions.mounts');
+    });
+
+    it('throws ConfigValidationError when a mounts entry has a non-string value', () => {
+      const raw = JSON.stringify({
+        extensions: { mounts: { 'ext/http': 42 } },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field extensions.mounts.ext/http: expected string, got number'
+      );
+    });
+
+    it('throws ConfigValidationError when context is present without schema', () => {
+      const raw = JSON.stringify({
+        context: { values: { token: 'abc' } },
+      });
+
+      expect(() => parseConfig(raw)).toThrow('Field context.schema');
+    });
+
+    it('throws ConfigValidationError when context is present without values', () => {
+      const raw = JSON.stringify({
+        context: { schema: { token: { type: 'string' } } },
+      });
+
+      expect(() => parseConfig(raw)).toThrow('Field context.values');
+    });
+
+    it('throws ConfigValidationError when a context.schema entry has an invalid type', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { token: { type: 'invalid' } },
+          values: { token: 'abc' },
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow('Field context.schema.token.type');
+    });
+
+    it('reports "null", not "object", for a null schema entry', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { token: null },
+          values: { token: 'abc' },
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field context.schema.token: expected object, got null'
+      );
+    });
+
+    it('throws ConfigValidationError when a modules entry has a non-string value', () => {
+      const raw = JSON.stringify({ modules: { math: 42 } });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field modules.math: expected string, got number'
+      );
+    });
+
+    it('throws ConfigValidationError when host.timeout receives a string', () => {
+      const raw = JSON.stringify({ host: { timeout: '5000' } });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field host.timeout: expected number, got string'
+      );
+    });
+
+    it('throws ConfigValidationError when host.maxCallStackDepth receives a string', () => {
+      const raw = JSON.stringify({ host: { maxCallStackDepth: '100' } });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field host.maxCallStackDepth: expected number, got string'
+      );
+    });
+
+    it('throws ConfigValidationError when host.setupTimeout receives a string', () => {
+      const raw = JSON.stringify({ host: { setupTimeout: '1000' } });
+
+      expect(() => parseConfig(raw)).toThrow(
+        'Field host.setupTimeout: expected number, got string'
+      );
+    });
+
+    it('parses a fully-valid config with all blocks unchanged', () => {
+      const raw = JSON.stringify({
+        name: 'my-app',
+        version: '1.2.3',
+        description: 'A test app',
+        runtime: '>=0.10.0',
+        main: 'index.rill',
+        extensions: {
+          mounts: { 'ext/http': 'rill-http@1.0.0' },
+          config: { 'ext/http': { baseUrl: 'https://example.com' } },
+        },
+        context: {
+          schema: { token: { type: 'string' } },
+          values: { token: '${TOKEN}' },
+        },
+        host: { timeout: 5000, maxCallStackDepth: 100, setupTimeout: 1000 },
+        modules: { math: './math.rill' },
+      });
+
+      const result = parseConfig(raw);
+
+      expect(result).toEqual(JSON.parse(raw));
+    });
   });
 });
 

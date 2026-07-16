@@ -1,3 +1,5 @@
+import { isAbsolute } from 'node:path';
+import semver from 'semver';
 import { MountValidationError, NamespaceCollisionError } from './errors.js';
 import type { ResolvedMount } from './types.js';
 
@@ -7,12 +9,22 @@ import type { ResolvedMount } from './types.js';
 
 const SEGMENT_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+// Segment names that would let mountValue's dict-node walk reach the
+// object prototype (e.g. node['__proto__'] returns Object.prototype
+// instead of undefined for a plain object).
+const RESERVED_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function validateMountPath(mountPath: string): void {
   if (!mountPath) {
     throw new MountValidationError('Mount path is empty');
   }
   const segments = mountPath.split('.');
   for (const segment of segments) {
+    if (RESERVED_SEGMENTS.has(segment)) {
+      throw new MountValidationError(
+        `Reserved segment: ${segment} in ${mountPath}`
+      );
+    }
     if (!SEGMENT_PATTERN.test(segment)) {
       throw new MountValidationError(
         `Invalid segment: ${segment} in ${mountPath}`
@@ -29,8 +41,13 @@ function parseSpecifier(raw: string): {
   packageSpecifier: string;
   versionConstraint: string | undefined;
 } {
-  // Local paths have no version constraint
-  if (raw.startsWith('./') || raw.startsWith('../')) {
+  // Local paths, absolute paths, and file:// URLs have no version constraint
+  if (
+    raw.startsWith('./') ||
+    raw.startsWith('../') ||
+    isAbsolute(raw) ||
+    raw.startsWith('file://')
+  ) {
     return { packageSpecifier: raw, versionConstraint: undefined };
   }
 
@@ -74,6 +91,15 @@ export function resolveMounts(mounts: Record<string, string>): ResolvedMount[] {
 
     const { packageSpecifier, versionConstraint } =
       parseSpecifier(rawSpecifier);
+
+    if (
+      versionConstraint !== undefined &&
+      semver.validRange(versionConstraint) === null
+    ) {
+      throw new MountValidationError(
+        `Invalid version range: ${versionConstraint}`
+      );
+    }
 
     // Detect conflicting versions for the same package
     if (versionsBySpecifier.has(packageSpecifier)) {

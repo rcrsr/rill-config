@@ -69,7 +69,7 @@ loadExtensions(
 ): Promise<LoadedProject>
 ```
 
-**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Relative, absolute, and `file://` specifiers are unaffected by `prefix`.
+**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`, and relative specifiers (`./`, `../`) resolve against `<prefix>` as well. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Absolute and `file://` specifiers are unaffected by `prefix`.
 
 | Export | Purpose |
 |--------|---------|
@@ -110,12 +110,12 @@ const project = await loadProject({
 loadProject(options: {
   configPath: string;   // absolute path to rill-config.json
   rillVersion: string;  // semver version of the rill runtime
-  prefix?: string;      // optional: absolute path to npm prefix directory; defaults to process.cwd()
+  prefix?: string;      // optional: absolute path to npm prefix directory; defaults to the config file's directory
   signal?: AbortSignal;
 }): Promise<ProjectResult>
 ```
 
-**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Relative, absolute, and `file://` specifiers are unaffected by `prefix`.
+**`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`, and relative specifiers (`./`, `../`) resolve against `<prefix>` as well. When omitted, `loadProject` defaults `prefix` to the directory containing `configPath`, matching `modules` resolution. When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Absolute and `file://` specifiers are unaffected by `prefix`.
 
 `loadProject` combines all steps: resolve config, validate, load extensions, build resolvers, and generate bindings.
 
@@ -160,6 +160,7 @@ All errors extend `ConfigError`:
 | `ContextValidationError` | Context value fails schema check |
 | `BundleRestrictionError` | Prohibited field present during bundle |
 | `HandlerArgError` | Invalid handler arguments |
+| `ResolverError` | A `use<scheme:resource>` resolver failed |
 
 ## Documentation
 

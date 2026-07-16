@@ -59,6 +59,18 @@ describe('resolveMounts', () => {
       expect(result[0]).not.toHaveProperty('versionConstraint');
     });
 
+    it('returns no versionConstraint for an absolute path specifier containing @', () => {
+      const result = resolveMounts({ fs: '/opt/pkgs/pkg@1.0.0' });
+      expect(result[0]?.packageSpecifier).toBe('/opt/pkgs/pkg@1.0.0');
+      expect(result[0]).not.toHaveProperty('versionConstraint');
+    });
+
+    it('returns no versionConstraint for a file:// specifier containing @', () => {
+      const result = resolveMounts({ fs: 'file:///opt/pkgs/pkg@1.0.0' });
+      expect(result[0]?.packageSpecifier).toBe('file:///opt/pkgs/pkg@1.0.0');
+      expect(result[0]).not.toHaveProperty('versionConstraint');
+    });
+
     it('resolves multiple mounts to correct order', () => {
       const result = resolveMounts({
         'storage.kv': '@scope/kv@1.0.0',
@@ -131,6 +143,49 @@ describe('resolveMounts', () => {
           'ns.b': '@scope/pkg@^1.0.0',
         })
       ).toThrowError(MountValidationError);
+    });
+
+    it('throws MountValidationError for an invalid version range', () => {
+      expect(() =>
+        resolveMounts({ fs: '@scope/pkg@not-a-range' })
+      ).toThrowError(MountValidationError);
+      expect(() =>
+        resolveMounts({ fs: '@scope/pkg@not-a-range' })
+      ).toThrowError('not-a-range');
+    });
+
+    it('accepts a valid version range and passes it through unchanged', () => {
+      const result = resolveMounts({ fs: '@scope/pkg@>=1.0.0 <2.0.0' });
+      expect(result[0]?.versionConstraint).toBe('>=1.0.0 <2.0.0');
+    });
+
+    it('throws MountValidationError for a "__proto__" segment', () => {
+      // Computed key: an object-literal `{ __proto__: ... }` sets the
+      // prototype instead of creating an own property.
+      expect(() => resolveMounts({ ['__proto__']: '@scope/pkg' })).toThrowError(
+        MountValidationError
+      );
+      expect(() =>
+        resolveMounts({ 'ext.__proto__': '@scope/pkg' })
+      ).toThrowError('Reserved segment: __proto__ in ext.__proto__');
+    });
+
+    it('throws MountValidationError for a "constructor" segment', () => {
+      expect(() =>
+        resolveMounts({ 'ext.constructor': '@scope/pkg' })
+      ).toThrowError(MountValidationError);
+      expect(() =>
+        resolveMounts({ 'ext.constructor': '@scope/pkg' })
+      ).toThrowError('Reserved segment: constructor in ext.constructor');
+    });
+
+    it('throws MountValidationError for a "prototype" segment', () => {
+      expect(() =>
+        resolveMounts({ 'ext.prototype': '@scope/pkg' })
+      ).toThrowError(MountValidationError);
+      expect(() =>
+        resolveMounts({ 'ext.prototype': '@scope/pkg' })
+      ).toThrowError('Reserved segment: prototype in ext.prototype');
     });
   });
 });

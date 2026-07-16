@@ -35,13 +35,14 @@ import type {
 
 /**
  * Resolve a package specifier for dynamic import.
- * Relative paths are resolved against CWD and converted to file URLs.
+ * Relative paths are resolved against `prefix` (falling back to CWD when
+ * absent) and converted to file URLs.
  * Bare specifiers resolve from the project directory via createRequire.
  * @internal
  */
 export function resolveSpecifier(specifier: string, prefix?: string): string {
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
-    return pathToFileURL(resolve(process.cwd(), specifier)).href;
+    return pathToFileURL(resolve(prefix ?? process.cwd(), specifier)).href;
   }
   if (isAbsolute(specifier) || specifier.startsWith('file://')) {
     return specifier;
@@ -183,13 +184,16 @@ function mountValue(
     return;
   }
 
-  // Dot-path: create intermediate dict nodes
+  // Dot-path: create intermediate dict nodes. Intermediates use a
+  // null-prototype object so a segment like "__proto__" (should it ever
+  // slip past validateMountPath) cannot resolve to Object.prototype
+  // instead of undefined and let the walk descend into it.
   let node: Record<string, RillValue> = tree;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]!;
     const existing = node[part];
     if (existing === undefined) {
-      const intermediate: Record<string, RillValue> = {};
+      const intermediate: Record<string, RillValue> = Object.create(null);
       node[part] = intermediate as unknown as RillValue;
     } else if (
       typeof existing !== 'object' ||
@@ -254,6 +258,14 @@ async function loadModules(
   mounts: ResolvedMount[],
   prefix?: string
 ): Promise<Map<string, Record<string, unknown>>> {
+  // NOTE: imports run sequentially to keep the aggregated
+  // `Cannot find packages: ...` error text in stable mount order via a
+  // plain append-as-you-go loop, with no reordering logic needed; this is
+  // not required for correctness of the imports themselves (order-preserving
+  // aggregation only needs an index-tagged Promise.allSettled, not serial
+  // execution). The real cost of the current design: N sequential dynamic
+  // imports on the startup path, so load latency is the sum of per-mount
+  // import latency rather than the max.
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
   const transitiveMisses: string[] = [];
@@ -411,7 +423,14 @@ async function invokeFactories(
   config: Record<string, Record<string, unknown>>,
   parentSignal: AbortSignal | undefined
 ): Promise<FactoryRunResult> {
-  const tree: Record<string, RillValue> = {};
+  // Null-prototype root: a mount path segment literally named "__proto__"
+  // would otherwise resolve `tree['__proto__']` to the real Object.prototype
+  // via the special accessor plain objects expose for that key, letting
+  // mountValue's walk descend into (and write onto) it. See mountValue.
+  const tree: Record<string, RillValue> = Object.create(null) as Record<
+    string,
+    RillValue
+  >;
   const disposes: Array<() => void | Promise<void>> = [];
   const errorCodes = new Map<string, string>();
 
@@ -496,10 +515,13 @@ export async function loadExtensions(
   config: Record<string, Record<string, unknown>>,
   options?: { signal?: AbortSignal; prefix?: string }
 ): Promise<LoadedProject> {
-  const modules = await loadModules(mounts, options?.prefix);
-  const manifests = validateManifests(mounts, modules);
+  // Cheap, side-effect-free validation runs before any arbitrary imported
+  // module code executes (loadModules dynamically imports mount packages).
   detectNamespaceCollisions(mounts);
   assertNoOrphanConfigKeys(config, mounts);
+
+  const modules = await loadModules(mounts, options?.prefix);
+  const manifests = validateManifests(mounts, modules);
 
   const { tree, disposes, errorCodes } = await invokeFactories(
     mounts,

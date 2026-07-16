@@ -3,7 +3,7 @@
  * Builds the ResolverConfig used by RuntimeOptions.
  */
 
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import {
   contextResolver,
   extResolver,
@@ -11,6 +11,7 @@ import {
   type RillValue,
   type SchemeResolver,
 } from '@rcrsr/rill';
+import { ResolverError } from './errors.js';
 import type { ResolverConfig } from './types.js';
 
 // ============================================================
@@ -48,11 +49,30 @@ export function buildResolvers(options: {
     }
 
     const subPath = dotIndex === -1 ? '' : resource.slice(dotIndex + 1);
+    if (dotIndex !== -1) {
+      for (const segment of subPath.split('.')) {
+        if (segment.length === 0) {
+          throw new ResolverError(
+            `Invalid module path segment in ${resource}`,
+            'module',
+            undefined
+          );
+        }
+      }
+    }
     const relPath =
       subPath.length > 0
         ? subPath.replaceAll('.', '/') + '.rill'
         : 'index.rill';
     const filePath = resolve(dirPath, relPath);
+
+    if (filePath !== dirPath && !filePath.startsWith(dirPath + sep)) {
+      throw new ResolverError(
+        `Module path escapes module directory: ${resource}`,
+        'module',
+        undefined
+      );
+    }
 
     return moduleResolver(resource, { [resource]: filePath });
   };

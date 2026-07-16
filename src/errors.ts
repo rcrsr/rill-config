@@ -4,6 +4,11 @@
 
 export abstract class ConfigError extends Error {
   abstract readonly code: string;
+
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = this.constructor.name;
+  }
 }
 
 // ============================================================
@@ -87,7 +92,6 @@ export class ResolverError extends ConfigError {
   readonly resolverName: string;
   constructor(message: string, resolverName: string, cause: unknown) {
     super(message, { cause });
-    this.name = 'ResolverError';
     this.resolverName = resolverName;
   }
 }

@@ -71,5 +71,15 @@ describe('resolveSpecifier', () => {
         'prefix-resolution/node_modules/@rcrsr/test-ext'
       );
     });
+
+    it('resolves a relative specifier against prefix, not cwd, when prefix differs from cwd', () => {
+      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const result = resolveSpecifier('./x.js', prefix);
+      const expected = pathToFileURL(resolve(prefix, './x.js')).href;
+      expect(result).toBe(expected);
+      // Regression guard: must not fall back to cwd when prefix is given.
+      const cwdResolved = pathToFileURL(resolve(process.cwd(), './x.js')).href;
+      expect(result).not.toBe(cwdResolved);
+    });
   });
 });

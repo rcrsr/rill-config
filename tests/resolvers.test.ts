@@ -3,6 +3,7 @@
  */
 
 import { buildResolvers } from '@rcrsr/rill-config';
+import { ResolverError } from '../src/errors.js';
 import {
   isApplicationCallable,
   structureToTypeValue,
@@ -86,6 +87,30 @@ describe('buildResolvers', () => {
       }
     });
 
+    it('resolves a well-formed multi-segment dot-path to the expected file path', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      fs.mkdirSync(path.join(dir, 'etc'), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, 'etc', 'passwd.rill'),
+        '"safe passwd module"'
+      );
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        const resolution = await moduleResolver!('lib.etc.passwd');
+        expect(resolution).toEqual(
+          expect.objectContaining({
+            kind: 'source',
+            text: '"safe passwd module"',
+          })
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
     it('resolves bare alias to index.rill', async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
       fs.writeFileSync(path.join(dir, 'index.rill'), '"index content"');
@@ -98,6 +123,36 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"index content"' })
         );
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('throws ResolverError for a dot-path with an empty segment', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        expect(() => moduleResolver!('lib..etc.passwd')).toThrow(ResolverError);
+        expect(() => moduleResolver!('lib..etc.passwd')).toThrow(
+          /lib\.\.etc\.passwd/
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('throws ResolverError for a trailing-dot resource', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
+        );
+        const moduleResolver = result.resolvers['module'];
+        expect(() => moduleResolver!('lib.')).toThrow(ResolverError);
+        expect(() => moduleResolver!('lib.')).toThrow(/lib\./);
       } finally {
         fs.rmSync(dir, { recursive: true });
       }

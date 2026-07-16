@@ -11,6 +11,7 @@ import {
   type RillValue,
   type SchemeResolver,
 } from '@rcrsr/rill';
+import { ResolverError } from './errors.js';
 import type { ResolverConfig } from './types.js';
 
 // ============================================================
@@ -48,6 +49,17 @@ export function buildResolvers(options: {
     }
 
     const subPath = dotIndex === -1 ? '' : resource.slice(dotIndex + 1);
+    if (dotIndex !== -1) {
+      for (const segment of subPath.split('.')) {
+        if (segment.length === 0) {
+          throw new ResolverError(
+            `Invalid module path segment in ${resource}`,
+            'module',
+            undefined
+          );
+        }
+      }
+    }
     const relPath =
       subPath.length > 0
         ? subPath.replaceAll('.', '/') + '.rill'

@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `parse`: `parseConfig` now deep-validates config structure and throws `ConfigValidationError` with a field path instead of letting malformed configs crash downstream with a raw `TypeError`. Checked: `extensions.mounts` (required, object of strings), `extensions.config` (object), `context.schema` (required, entries `{ type: 'string' | 'number' | 'bool' }`), `context.values` (required, object), `modules` (object of strings), and `host.timeout` / `host.maxCallStackDepth` / `host.setupTimeout` (numbers).
+- `mounts`: absolute-path and `file://` mount specifiers containing `@` are no longer mis-split into package and version. Version constraints are validated with `semver.validRange` at `resolveMounts` time; an unparseable range now throws `MountValidationError` naming the range instead of a misleading "does not satisfy" error later.
+- `resolvers`: the `module:` scheme resolver rejects dot-paths with empty segments (e.g. `alias..sub`) with a `ResolverError`. Previously such paths could resolve to absolute filesystem locations outside the configured module directory.
+- `validate`: `validateContext` rejects `NaN` and `±Infinity` for `number`-typed context fields, which previously flowed into `buildContextBindings` and produced invalid rill literals.
+- `errors`: all `ConfigError` subclasses now report their class name in `error.name` and stack traces (previously `Error`).
+
 ### Changed
+
+- `loader`/`project`: relative mount specifiers (`./`, `../`) now resolve against the `prefix` option when provided, and `loadProject` defaults `prefix` to the config file's directory. Relative mounts and `modules` entries now anchor consistently on the config location; behavior only changes when the process cwd differs from the config directory.
+- `loader`: namespace-collision and orphan-config-key validation runs before any mount package is imported, so cheap validation failures no longer execute arbitrary extension module code. Mount imports run concurrently; missing-package aggregation and error ordering are unchanged.
 
 - **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes. ([#9](https://github.com/rcrsr/rill-config/pull/9))
 - **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix. ([#9](https://github.com/rcrsr/rill-config/pull/9))

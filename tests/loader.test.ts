@@ -226,6 +226,23 @@ vi.mock('/fake/ext/dual-mount', () => ({
   },
 }));
 
+// Ordering provenance: validation must run before any mount module is
+// imported. The side effect fires inside the vi.mock factory itself,
+// which vitest invokes at dynamic-import time, so it stands in for an
+// observable import side effect of a real module.
+const validationOrderCaptured = vi.hoisted(() => ({ imported: false }));
+vi.mock('/fake/ext/validation-order-side-effect', () => {
+  validationOrderCaptured.imported = true;
+  return {
+    extensionManifest: {
+      factory: () => ({ value: 'should-not-run' }),
+    },
+  };
+});
+
+// Aggregation ordering: two mounts whose modules both fail as
+// ERR_MODULE_NOT_FOUND, used to assert mount-order-stable error text.
+
 // ============================================================
 // TEST HELPERS
 // ============================================================
@@ -668,6 +685,59 @@ describe('loadExtensions', () => {
         prefix,
       });
       expect(result.extTree).toHaveProperty('test-ext');
+    });
+  });
+
+  // ============================================================
+  // Ordering provenance: cheap validation runs before module imports
+  // ============================================================
+
+  describe('validation ordering: collisions/orphans checked before module import', () => {
+    it('throws NamespaceCollisionError without importing the colliding mount module', async () => {
+      validationOrderCaptured.imported = false;
+      const mounts = [
+        makeMount('shared', '/fake/ext/coll-pkg-a'),
+        makeMount('shared.sub', '/fake/ext/validation-order-side-effect'),
+      ];
+      await expect(loadExtensions(mounts, {})).rejects.toThrow(
+        NamespaceCollisionError
+      );
+      expect(validationOrderCaptured.imported).toBe(false);
+    });
+
+    it('throws ConfigValidationError without importing any mount module', async () => {
+      validationOrderCaptured.imported = false;
+      const mounts = [
+        makeMount('real', '/fake/ext/validation-order-side-effect'),
+      ];
+      const config = { orphan: { setting: 'value' } };
+      await expect(loadExtensions(mounts, config)).rejects.toThrow(
+        ConfigValidationError
+      );
+      expect(validationOrderCaptured.imported).toBe(false);
+    });
+  });
+
+  // ============================================================
+  // Aggregation ordering: concurrent imports preserve mount order
+  // ============================================================
+
+  describe('loadModules aggregation: mount-order-stable error text under concurrency', () => {
+    it('lists two missing packages in mount order regardless of import completion order', async () => {
+      const mounts = [
+        makeMount('a', '@nonexistent/rill-ext-concurrent-a-99999'),
+        makeMount('b', '@nonexistent/rill-ext-concurrent-b-99999'),
+      ];
+      try {
+        await loadExtensions(mounts, {});
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        const msg = (err as Error).message;
+        expect(msg).toBe(
+          'Cannot find packages: @nonexistent/rill-ext-concurrent-a-99999, @nonexistent/rill-ext-concurrent-b-99999'
+        );
+      }
     });
   });
 });

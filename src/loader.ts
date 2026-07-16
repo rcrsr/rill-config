@@ -35,13 +35,14 @@ import type {
 
 /**
  * Resolve a package specifier for dynamic import.
- * Relative paths are resolved against CWD and converted to file URLs.
+ * Relative paths are resolved against `prefix` (falling back to CWD when
+ * absent) and converted to file URLs.
  * Bare specifiers resolve from the project directory via createRequire.
  * @internal
  */
 export function resolveSpecifier(specifier: string, prefix?: string): string {
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
-    return pathToFileURL(resolve(process.cwd(), specifier)).href;
+    return pathToFileURL(resolve(prefix ?? process.cwd(), specifier)).href;
   }
   if (isAbsolute(specifier) || specifier.startsWith('file://')) {
     return specifier;
@@ -254,6 +255,12 @@ async function loadModules(
   mounts: ResolvedMount[],
   prefix?: string
 ): Promise<Map<string, Record<string, unknown>>> {
+  // NOTE: imports are intentionally sequential, not concurrent. A
+  // Promise.all-based rewrite was attempted and reverted: concurrent
+  // `import()` calls resolving to the same specifier race against each
+  // other's module-registry registration and can spuriously report one of
+  // the two as not-found. Aggregation stays mount-order-stable as a
+  // consequence of the sequential loop, with no reordering logic needed.
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
   const transitiveMisses: string[] = [];
@@ -496,10 +503,13 @@ export async function loadExtensions(
   config: Record<string, Record<string, unknown>>,
   options?: { signal?: AbortSignal; prefix?: string }
 ): Promise<LoadedProject> {
-  const modules = await loadModules(mounts, options?.prefix);
-  const manifests = validateManifests(mounts, modules);
+  // Cheap, side-effect-free validation runs before any arbitrary imported
+  // module code executes (loadModules dynamically imports mount packages).
   detectNamespaceCollisions(mounts);
   assertNoOrphanConfigKeys(config, mounts);
+
+  const modules = await loadModules(mounts, options?.prefix);
+  const manifests = validateManifests(mounts, modules);
 
   const { tree, disposes, errorCodes } = await invokeFactories(
     mounts,

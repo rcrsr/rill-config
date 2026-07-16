@@ -145,6 +145,45 @@ describe('loadProject', () => {
     });
   });
 
+  describe('relative mount specifiers resolve against the config directory', () => {
+    it('resolves a "./" mount specifier relative to configPath, not cwd', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'rill-config-test-'));
+      try {
+        const extPath = join(dir, 'local-ext.mjs');
+        writeFileSync(
+          extPath,
+          "export const extensionManifest = { factory: () => ({ value: 'from-local-ext' }) };\n",
+          'utf8'
+        );
+        const configPath = join(dir, 'rill-config.json');
+        writeFileSync(
+          configPath,
+          JSON.stringify({
+            name: 'relative-mount-project',
+            extensions: {
+              mounts: {
+                local: './local-ext.mjs',
+              },
+            },
+          }),
+          'utf8'
+        );
+
+        const result = await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+        });
+
+        expect(result.extTree).toHaveProperty('local');
+        expect((result.extTree as Record<string, unknown>)['local']).toBe(
+          'from-local-ext'
+        );
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe('error: config file not found', () => {
     it('throws ConfigNotFoundError when config path does not exist', async () => {
       await expect(

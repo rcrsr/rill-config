@@ -36,10 +36,15 @@ export async function loadProject(options: {
    * cleanup via `signal.addEventListener('abort', ...)` tear down.
    */
   signal?: AbortSignal;
-  /** Optional key prefix forwarded to loadExtensions. */
+  /**
+   * Optional path-resolution anchor forwarded to loadExtensions, used to
+   * resolve relative and bare mount specifiers. Defaults to the config
+   * file's directory when omitted.
+   */
   prefix?: string;
 }): Promise<ProjectResult> {
-  const { configPath, rillVersion, signal, prefix } = options;
+  const { configPath, rillVersion, signal } = options;
+  const prefix = options.prefix ?? dirname(configPath);
 
   // Step 1: Read config file
   let raw: string;

@@ -134,6 +134,87 @@ describe('validateContext', () => {
         'Context label: expected string, got bool'
       );
     });
+
+    it('throws ContextValidationError naming the key and value for NaN', () => {
+      const context: ContextBlock = {
+        schema: { score: { type: 'number' } },
+        values: { score: NaN },
+      };
+
+      expect(() => validateContext(context)).toThrowError(
+        ContextValidationError
+      );
+      expect(() => validateContext(context)).toThrowError(
+        'Context score: expected a finite number, got NaN'
+      );
+    });
+
+    it('throws ContextValidationError naming the key and value for Infinity', () => {
+      const context: ContextBlock = {
+        schema: { score: { type: 'number' } },
+        values: { score: Infinity },
+      };
+
+      expect(() => validateContext(context)).toThrowError(
+        ContextValidationError
+      );
+      expect(() => validateContext(context)).toThrowError(
+        'Context score: expected a finite number, got Infinity'
+      );
+    });
+
+    it('throws ContextValidationError naming the key and value for -Infinity', () => {
+      const context: ContextBlock = {
+        schema: { score: { type: 'number' } },
+        values: { score: -Infinity },
+      };
+
+      expect(() => validateContext(context)).toThrowError(
+        ContextValidationError
+      );
+      expect(() => validateContext(context)).toThrowError(
+        'Context score: expected a finite number, got -Infinity'
+      );
+    });
+
+    it('sets the error name to the concrete class name via the base constructor', () => {
+      const context: ContextBlock = {
+        schema: { score: { type: 'number' } },
+        values: { score: NaN },
+      };
+
+      let caught: unknown;
+      try {
+        validateContext(context);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ContextValidationError);
+      expect((caught as ContextValidationError).name).toBe(
+        'ContextValidationError'
+      );
+    });
+  });
+
+  describe('regression: finite numbers', () => {
+    it('does not throw for a valid finite number', () => {
+      const context: ContextBlock = {
+        schema: { count: { type: 'number' } },
+        values: { count: 42 },
+      };
+
+      expect(() => validateContext(context)).not.toThrow();
+    });
+
+    it('does not throw for zero and negative finite numbers', () => {
+      const context: ContextBlock = {
+        schema: { count: { type: 'number' } },
+        values: { count: -3.5 },
+      };
+
+      expect(() => validateContext(context)).not.toThrow();
+    });
   });
 });
 

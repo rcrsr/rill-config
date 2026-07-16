@@ -48,6 +48,12 @@ export function validateContext(
       );
     }
 
+    if (expectedType === 'number' && !Number.isFinite(value)) {
+      throw new ContextValidationError(
+        `Context ${key}: expected a finite number, got ${value}`
+      );
+    }
+
     result[key] = value;
   }
 

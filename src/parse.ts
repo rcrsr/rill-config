@@ -20,14 +20,56 @@ function assertOptionalObject(field: string, value: unknown): void {
   }
 }
 
+function assertOptionalNumber(field: string, value: unknown): void {
+  if (value !== undefined && typeof value !== 'number') {
+    throw new ConfigValidationError(
+      `Field ${field}: expected number, got ${typeof value}`
+    );
+  }
+}
+
+function assertRequiredObject(field: string, value: unknown): void {
+  if (value === undefined) {
+    throw new ConfigValidationError(`Field ${field}: is required`);
+  }
+  assertOptionalObject(field, value);
+}
+
+function assertObjectOfStrings(field: string, value: unknown): void {
+  assertRequiredObject(field, value);
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    const entry = record[key];
+    if (typeof entry !== 'string') {
+      throw new ConfigValidationError(
+        `Field ${field}.${key}: expected string, got ${typeof entry}`
+      );
+    }
+  }
+}
+
+function assertSchemaEntry(field: string, value: unknown): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ConfigValidationError(
+      `Field ${field}: expected object, got ${Array.isArray(value) ? 'array' : typeof value}`
+    );
+  }
+  const entry = value as Record<string, unknown>;
+  const type = entry['type'];
+  if (type !== 'string' && type !== 'number' && type !== 'bool') {
+    throw new ConfigValidationError(
+      `Field ${field}.type: expected "string" | "number" | "bool", got ${JSON.stringify(type)}`
+    );
+  }
+}
+
 /**
  * Parse a JSON config string into a RillConfigFile.
  *
- * Validation is **shallow**: only top-level field types are checked
- * (string fields are strings; object fields are non-array objects).
- * Nested shapes (e.g. `extensions.mounts` keys/values, `context.schema`
- * field types, `host` numeric fields) are not validated here — they
- * are checked downstream by `resolveMounts`, `validateContext`, etc.
+ * Validation covers top-level field types plus the nested shapes of
+ * `extensions`, `context`, `host`, and `modules`. `context.values` is
+ * only checked for object shape here; its entries are checked against
+ * `context.schema` downstream by `validateContext` after interpolation.
  */
 export function parseConfig(raw: string): RillConfigFile {
   let parsed: unknown;
@@ -55,6 +97,40 @@ export function parseConfig(raw: string): RillConfigFile {
   assertOptionalObject('context', obj['context']);
   assertOptionalObject('host', obj['host']);
   assertOptionalObject('modules', obj['modules']);
+
+  const extensions = obj['extensions'];
+  if (extensions !== undefined) {
+    const extensionsObj = extensions as Record<string, unknown>;
+    assertObjectOfStrings('extensions.mounts', extensionsObj['mounts']);
+    assertOptionalObject('extensions.config', extensionsObj['config']);
+  }
+
+  const context = obj['context'];
+  if (context !== undefined) {
+    const contextObj = context as Record<string, unknown>;
+    assertRequiredObject('context.schema', contextObj['schema']);
+    const schema = contextObj['schema'] as Record<string, unknown>;
+    for (const key of Object.keys(schema)) {
+      assertSchemaEntry(`context.schema.${key}`, schema[key]);
+    }
+    assertRequiredObject('context.values', contextObj['values']);
+  }
+
+  const modules = obj['modules'];
+  if (modules !== undefined) {
+    assertObjectOfStrings('modules', modules);
+  }
+
+  const host = obj['host'];
+  if (host !== undefined) {
+    const hostObj = host as Record<string, unknown>;
+    assertOptionalNumber('host.timeout', hostObj['timeout']);
+    assertOptionalNumber(
+      'host.maxCallStackDepth',
+      hostObj['maxCallStackDepth']
+    );
+    assertOptionalNumber('host.setupTimeout', hostObj['setupTimeout']);
+  }
 
   return obj as unknown as RillConfigFile;
 }

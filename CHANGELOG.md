@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes.
+- **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix.
+
 ## [0.19.2] - 2026-05-03
 
 ### Fixed

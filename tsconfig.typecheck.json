@@ -4,7 +4,10 @@
     "noEmit": true,
     "composite": false,
     "declaration": false,
-    "rootDir": "."
+    "rootDir": ".",
+    "paths": {
+      "@rcrsr/rill-config": ["./src/index.ts"]
+    }
   },
   "include": ["src/**/*", "tests/**/*"]
 }

@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes.
-- **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix.
+- **Dev tooling:** Updated to TypeScript 7, oxlint, oxfmt, lefthook, and knip, matching rill-cli; no runtime changes. ([#9](https://github.com/rcrsr/rill-config/pull/9))
+- **Engines:** `engines.node` raised from `>=20.0.0` to `>=22.16.0`, matching rill-cli and the CI matrix. ([#9](https://github.com/rcrsr/rill-config/pull/9))
 
 ## [0.19.2] - 2026-05-03
 

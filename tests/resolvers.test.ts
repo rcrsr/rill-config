@@ -188,7 +188,7 @@ describe('buildResolvers', () => {
         RillValue
       >;
       const toolsDict = extConfig['tools'] as Record<string, RillValue>;
-      const greetCallable = toolsDict['greet'];
+      const greetCallable = toolsDict['greet']!;
 
       expect(isApplicationCallable(greetCallable)).toBe(true);
       const ac = greetCallable as unknown as ApplicationCallable;

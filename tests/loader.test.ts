@@ -44,284 +44,187 @@ const partialCaptured = vi.hoisted(() => ({
 // ============================================================
 
 // EC-7: no extensionManifest export
-vi.mock('/fake/ext/no-manifest', () => ({ someOtherExport: 42 }), {
-  virtual: true,
-});
-vi.mock('/fake/ext/no-manifest-msg', () => ({ irrelevant: true }), {
-  virtual: true,
-});
+vi.mock('/fake/ext/no-manifest', () => ({ someOtherExport: 42 }));
+vi.mock('/fake/ext/no-manifest-msg', () => ({ irrelevant: true }));
 
 // EC-7: factory throws
-vi.mock(
-  '/fake/ext/factory-throws',
-  () => ({
-    extensionManifest: {
-      factory: () => {
-        throw new Error('api_key is required');
-      },
+vi.mock('/fake/ext/factory-throws', () => ({
+  extensionManifest: {
+    factory: () => {
+      throw new Error('api_key is required');
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/factory-throws-msg',
-  () => ({
-    extensionManifest: {
-      factory: () => {
-        throw new Error('connection refused');
-      },
+  },
+}));
+vi.mock('/fake/ext/factory-throws-msg', () => ({
+  extensionManifest: {
+    factory: () => {
+      throw new Error('connection refused');
     },
-  }),
-  { virtual: true }
-);
+  },
+}));
 
 // EC-9: cross-package collision
-vi.mock(
-  '/fake/ext/coll-pkg-a',
-  () => ({
-    extensionManifest: {
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/coll-pkg-b',
-  () => ({
-    extensionManifest: {
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/coll-pkg-a', () => ({
+  extensionManifest: {
+    factory: () => ({}),
+  },
+}));
+vi.mock('/fake/ext/coll-pkg-b', () => ({
+  extensionManifest: {
+    factory: () => ({}),
+  },
+}));
 
 // EC-10: version
-vi.mock(
-  '/fake/ext/version-mismatch',
-  () => ({
-    extensionManifest: {
-      version: '1.0.0',
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/version-ok',
-  () => ({
-    extensionManifest: {
-      version: '1.5.0',
-      factory: () => ({ value: 'ok' }),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/version-mismatch', () => ({
+  extensionManifest: {
+    version: '1.0.0',
+    factory: () => ({}),
+  },
+}));
+vi.mock('/fake/ext/version-ok', () => ({
+  extensionManifest: {
+    version: '1.5.0',
+    factory: () => ({ value: 'ok' }),
+  },
+}));
 
 // EC-11: orphaned config keys
-vi.mock(
-  '/fake/ext/orphan-base',
-  () => ({
-    extensionManifest: {
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/orphan-msg',
-  () => ({
-    extensionManifest: {
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/orphan-base', () => ({
+  extensionManifest: {
+    factory: () => ({}),
+  },
+}));
+vi.mock('/fake/ext/orphan-msg', () => ({
+  extensionManifest: {
+    factory: () => ({}),
+  },
+}));
 
 // EC-5: factory result missing value property
-vi.mock(
-  '/fake/ext/no-value-prop',
-  () => ({
-    extensionManifest: {
-      factory: () => ({}),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/no-value-prop', () => ({
+  extensionManifest: {
+    factory: () => ({}),
+  },
+}));
 
 // EC-6: factory result with undefined value
-vi.mock(
-  '/fake/ext/undef-value',
-  () => ({
-    extensionManifest: {
-      factory: () => ({ value: undefined }),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/undef-value', () => ({
+  extensionManifest: {
+    factory: () => ({ value: undefined }),
+  },
+}));
 
 // HP-8: validates manifest and invokes factory
-vi.mock(
-  '/fake/ext/valid-factory',
-  () => ({
-    extensionManifest: {
-      factory: (_cfg: Record<string, unknown>) => ({
-        value: { run: { fn: async () => 'ok', params: [] } },
-      }),
+vi.mock('/fake/ext/valid-factory', () => ({
+  extensionManifest: {
+    factory: (_cfg: Record<string, unknown>) => ({
+      value: { run: { fn: async () => 'ok', params: [] } },
+    }),
+  },
+}));
+vi.mock('/fake/ext/with-dispose', () => ({
+  extensionManifest: {
+    factory: () => ({
+      value: 'placeholder',
+      dispose: () => undefined,
+    }),
+  },
+}));
+vi.mock('/fake/ext/ctx-capture', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: {
+        signal: AbortSignal;
+        registerErrorCode: (n: string, k: string) => void;
+      }
+    ) => {
+      ctxCaptured.ctx = ctx;
+      ctx.registerErrorCode('MY_CODE', 'http');
+      return { value: 'ok' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/with-dispose',
-  () => ({
-    extensionManifest: {
-      factory: () => ({
-        value: 'placeholder',
-        dispose: () => undefined,
-      }),
+  },
+}));
+vi.mock('/fake/ext/codes-single', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: { registerErrorCode: (n: string, k: string) => void }
+    ) => {
+      ctx.registerErrorCode('FOO', 'http');
+      ctx.registerErrorCode('BAR', 'protocol');
+      return { value: 'ok' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/ctx-capture',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: {
-          signal: AbortSignal;
-          registerErrorCode: (n: string, k: string) => void;
-        }
-      ) => {
-        ctxCaptured.ctx = ctx;
-        ctx.registerErrorCode('MY_CODE', 'http');
-        return { value: 'ok' };
-      },
+  },
+}));
+vi.mock('/fake/ext/codes-conflict-a', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: { registerErrorCode: (n: string, k: string) => void }
+    ) => {
+      ctx.registerErrorCode('SHARED', 'http');
+      return { value: 'a' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/codes-single',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { registerErrorCode: (n: string, k: string) => void }
-      ) => {
-        ctx.registerErrorCode('FOO', 'http');
-        ctx.registerErrorCode('BAR', 'protocol');
-        return { value: 'ok' };
-      },
+  },
+}));
+vi.mock('/fake/ext/codes-conflict-b', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: { registerErrorCode: (n: string, k: string) => void }
+    ) => {
+      ctx.registerErrorCode('SHARED', 'protocol');
+      return { value: 'b' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/codes-conflict-a',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { registerErrorCode: (n: string, k: string) => void }
-      ) => {
-        ctx.registerErrorCode('SHARED', 'http');
-        return { value: 'a' };
-      },
+  },
+}));
+vi.mock('/fake/ext/parent-signal', () => ({
+  extensionManifest: {
+    factory: (_cfg: Record<string, unknown>, ctx: { signal: AbortSignal }) => {
+      cascadeCaptured.ctx = ctx;
+      return { value: 'ok' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/codes-conflict-b',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { registerErrorCode: (n: string, k: string) => void }
-      ) => {
-        ctx.registerErrorCode('SHARED', 'protocol');
-        return { value: 'b' };
-      },
+  },
+}));
+vi.mock('/fake/ext/preaborted', () => ({
+  extensionManifest: {
+    factory: (_cfg: Record<string, unknown>, ctx: { signal: AbortSignal }) => {
+      preabortCaptured.ctx = ctx;
+      return { value: 'ok' };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/parent-signal',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { signal: AbortSignal }
-      ) => {
-        cascadeCaptured.ctx = ctx;
-        return { value: 'ok' };
-      },
+  },
+}));
+vi.mock('/fake/ext/partial-good', () => ({
+  extensionManifest: {
+    factory: (_cfg: Record<string, unknown>, ctx: { signal: AbortSignal }) => {
+      partialCaptured.ctx = ctx;
+      return {
+        value: 'good',
+        dispose: () => {
+          partialCaptured.disposeCalls++;
+        },
+      };
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/preaborted',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { signal: AbortSignal }
-      ) => {
-        preabortCaptured.ctx = ctx;
-        return { value: 'ok' };
-      },
+  },
+}));
+vi.mock('/fake/ext/partial-bad', () => ({
+  extensionManifest: {
+    factory: () => {
+      throw new Error('boom');
     },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/partial-good',
-  () => ({
-    extensionManifest: {
-      factory: (
-        _cfg: Record<string, unknown>,
-        ctx: { signal: AbortSignal }
-      ) => {
-        partialCaptured.ctx = ctx;
-        return {
-          value: 'good',
-          dispose: () => {
-            partialCaptured.disposeCalls++;
-          },
-        };
-      },
-    },
-  }),
-  { virtual: true }
-);
-vi.mock(
-  '/fake/ext/partial-bad',
-  () => ({
-    extensionManifest: {
-      factory: () => {
-        throw new Error('boom');
-      },
-    },
-  }),
-  { virtual: true }
-);
+  },
+}));
 
 // HP-7: same package at two mount paths
-vi.mock(
-  '/fake/ext/dual-mount',
-  () => ({
-    extensionManifest: {
-      factory: (_cfg: Record<string, unknown>) => ({
-        value: { fn1: { fn: async () => 'v', params: [] } },
-      }),
-    },
-  }),
-  { virtual: true }
-);
+vi.mock('/fake/ext/dual-mount', () => ({
+  extensionManifest: {
+    factory: (_cfg: Record<string, unknown>) => ({
+      value: { fn1: { fn: async () => 'v', params: [] } },
+    }),
+  },
+}));
 
 // ============================================================
 // TEST HELPERS

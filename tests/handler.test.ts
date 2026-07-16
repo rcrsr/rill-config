@@ -42,9 +42,12 @@ function makeCallable(options: {
     isProperty: false,
     params: params as ScriptCallable['params'],
     body: {
-      type: 'Body',
+      type: 'Block',
       statements: [],
-      span: { start: 0, end: 0 },
+      span: {
+        start: { line: 1, column: 1, offset: 0 },
+        end: { line: 1, column: 1, offset: 0 },
+      },
     } as ScriptCallable['body'],
     definingScope: {
       variables: new Map(),

@@ -160,6 +160,7 @@ All errors extend `ConfigError`:
 | `ContextValidationError` | Context value fails schema check |
 | `BundleRestrictionError` | Prohibited field present during bundle |
 | `HandlerArgError` | Invalid handler arguments |
+| `ResolverError` | A `use<scheme:resource>` resolver failed |
 
 ## Documentation
 

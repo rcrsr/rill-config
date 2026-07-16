@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `resolvers`: the `module:` scheme resolver rejects dot-paths with empty segments (e.g. `alias..sub`) with a `ResolverError`. Previously such paths could resolve to absolute filesystem locations outside the configured module directory.
 - `validate`: `validateContext` rejects `NaN` and `±Infinity` for `number`-typed context fields, which previously flowed into `buildContextBindings` and produced invalid rill literals.
 - `errors`: all `ConfigError` subclasses now report their class name in `error.name` and stack traces (previously `Error`).
+- `docs`: the README error-class table now lists `ResolverError`, a public export that was missing from the table.
 
 ### Changed
 

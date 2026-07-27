@@ -118,7 +118,7 @@ loadProject(options: {
 
 **`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`, and relative specifiers (`./`, `../`) resolve against `<prefix>` as well. When omitted, `loadProject` defaults `prefix` to the directory containing `configPath`, matching `modules` resolution. When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Absolute and `file://` specifiers are unaffected by `prefix`.
 
-**`varProvider` parameter:** A `VariableProvider` used to resolve `${VAR}` names during config interpolation. When supplied, it displaces `process.env` entirely; when omitted, `loadProject` defaults to `envProvider()`. It applies to `${VAR}` interpolation only; session `@{VAR}` vars pass through unaffected, since `loadProject` never calls `substituteSessionVars`. Names no provider resolves still throw `ConfigEnvError` from `interpolate`, unchanged from current behavior.
+**`varProvider` parameter:** A `VariableProvider` used to resolve `${VAR}` names during config interpolation. When supplied, it displaces `process.env` entirely; when omitted, `loadProject` defaults to `envProvider()`. It applies to `${VAR}` interpolation only; session `@{VAR}` vars pass through unaffected, since `loadProject` never calls `substituteSessionVars`. Names no provider resolves still throw `ConfigEnvError` from `interpolate`, unchanged from current behavior. `loadProject` forwards its own `signal` option into the provider call as `{ signal }`. It also validates the resolved result at runtime: a non-object return, a `null` return, or any non-string value throws `VariableProviderError`.
 
 `loadProject` combines all steps: resolve config, validate, load extensions, build resolvers, and generate bindings.
 
@@ -136,10 +136,12 @@ const project = await loadProject({
 
 | Export | Purpose |
 |--------|---------|
-| `VariableProvider` | Interface: `provide(names)` resolves `${VAR}` names to values |
+| `VariableProvider` | Interface: `provide(names, options?)` resolves `${VAR}` names to values |
 | `envProvider()` | Reads variable values from `process.env` |
 | `literalProvider(values)` | Reads variable values from a caller-supplied map |
-| `chainProviders(providers)` | Tries each provider in order; halts on `VariableProviderError` |
+| `chainProviders(providers)` | Tries each provider in order; halts and propagates on any thrown error |
+
+`VariableProvider.provide` accepts an optional second argument, `options?: { signal?: AbortSignal }`. `loadProject` forwards its own `signal` option through to the configured provider, and `chainProviders` forwards `options` unchanged to each wrapped provider in turn. A provider that ignores `signal` still works, but cannot be cancelled mid-resolution.
 
 A host composing multiple sources implements its own provider and chains it with the built-in ones. Nothing filesystem-specific ships in this package; the host owns file semantics:
 
@@ -149,12 +151,19 @@ import { chainProviders, envProvider, type VariableProvider } from '@rcrsr/rill-
 
 function fileProvider(dir: string): VariableProvider {
   return {
-    async provide(names) {
+    async provide(names, options) {
       const result: Record<string, string> = {};
       for (const name of names) {
+        options?.signal?.throwIfAborted();
         try {
-          result[name] = (await readFile(`${dir}/${name}`, 'utf8')).trimEnd();
-        } catch {
+          result[name] = (
+            await readFile(`${dir}/${name}`, {
+              encoding: 'utf8',
+              ...(options?.signal !== undefined ? { signal: options.signal } : {}),
+            })
+          ).trimEnd();
+        } catch (err) {
+          if (options?.signal?.aborted) throw err;
           // ENOENT: name stays absent, per the partial-match contract
         }
       }

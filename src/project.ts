@@ -5,7 +5,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { ConfigNotFoundError } from './errors.js';
+import { ConfigNotFoundError, VariableProviderError } from './errors.js';
 import { parseConfig } from './parse.js';
 import { extractVariables, interpolate } from './vars.js';
 import { envProvider } from './var-providers.js';
@@ -46,10 +46,12 @@ export async function loadProject(options: {
   /**
    * Optional variable provider used to resolve `${VAR}` names during config
    * interpolation. Session `@{VAR}` vars are untouched: loadProject never
-   * calls substituteSessionVars (src/vars.ts:193), so a supplied provider
-   * has no effect on them. A supplied provider fully displaces process.env;
-   * defaults to envProvider() when omitted. Names no provider resolves
-   * still throw ConfigEnvError from interpolate (src/vars.ts:175).
+   * calls substituteSessionVars, so a supplied provider has no effect on
+   * them. A supplied provider fully displaces process.env; defaults to
+   * envProvider() when omitted. Names no provider resolves still throw
+   * ConfigEnvError from interpolate, the same error class used for the
+   * legacy env-only path. That name stays env-specific even when a
+   * custom provider never touches the environment.
    */
   varProvider?: VariableProvider;
 }): Promise<ProjectResult> {
@@ -73,7 +75,26 @@ export async function loadProject(options: {
   const config = parseConfig(raw);
   const vars = extractVariables(config);
   const provider = options.varProvider ?? envProvider();
-  const resolvedVars = await provider.provide(vars.global);
+  const resolvedVars = await provider.provide(
+    vars.global,
+    signal !== undefined ? { signal } : {}
+  );
+  if (typeof resolvedVars !== 'object' || resolvedVars === null) {
+    throw new VariableProviderError(
+      'Variable provider did not return an object',
+      'varProvider',
+      undefined
+    );
+  }
+  for (const [name, value] of Object.entries(resolvedVars)) {
+    if (typeof value !== 'string') {
+      throw new VariableProviderError(
+        `Variable provider returned a non-string value for ${name}`,
+        'varProvider',
+        undefined
+      );
+    }
+  }
   const interpolatedConfig = interpolate(config, resolvedVars);
 
   // Step 3: Runtime version check

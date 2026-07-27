@@ -78,7 +78,7 @@ function substituteString(
   replaceSession: boolean
 ): string {
   const replacer = (match: string, name: string): string => {
-    if (name in vars) return vars[name] as string;
+    if (Object.hasOwn(vars, name)) return vars[name] as string;
     missing.add(name);
     return match;
   };

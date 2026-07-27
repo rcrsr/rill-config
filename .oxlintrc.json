@@ -42,7 +42,7 @@
   ],
   "overrides": [
     {
-      "files": ["**/var-providers.ts"],
+      "files": ["src/var-providers.ts"],
       "rules": { "no-restricted-properties": "off" }
     }
   ]

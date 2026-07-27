@@ -16,6 +16,12 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+// Imports the src module directly, not the `@rcrsr/rill-config` barrel.
+// Vitest's re-export transform gives the barrel's forwarded `loadExtensions`
+// export a distinct binding from the one `project.ts` calls internally, so
+// spying via the barrel does not intercept that internal call. Spying on
+// this binding instead makes the "not called" assertion below meaningful.
+import * as loaderModule from '../src/loader.js';
 
 // ============================================================
 // HELPERS
@@ -317,6 +323,7 @@ describe('loadProject', () => {
           );
         },
       };
+      const loadExtensionsSpy = vi.spyOn(loaderModule, 'loadExtensions');
       try {
         const promise = loadProject({
           configPath,
@@ -325,6 +332,110 @@ describe('loadProject', () => {
         });
         await expect(promise).rejects.toBeInstanceOf(VariableProviderError);
         await expect(promise).rejects.toBeInstanceOf(ConfigError);
+        expect(loadExtensionsSpy).not.toHaveBeenCalled();
+      } finally {
+        loadExtensionsSpy.mockRestore();
+        cleanup();
+      }
+    });
+
+    it('T6: a supplied provider that returns null throws VariableProviderError', async () => {
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      const nullProvider = {
+        provide(): Promise<Record<string, string>> {
+          return Promise.resolve(null as unknown as Record<string, string>);
+        },
+      };
+      try {
+        const promise = loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: nullProvider,
+        });
+        await expect(promise).rejects.toBeInstanceOf(VariableProviderError);
+        await expect(promise).rejects.toBeInstanceOf(ConfigError);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T7: a supplied provider that returns a non-string value throws VariableProviderError', async () => {
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      const badProvider = {
+        provide(): Promise<Record<string, string>> {
+          return Promise.resolve({
+            X: 42,
+          } as unknown as Record<string, string>);
+        },
+      };
+      try {
+        const promise = loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: badProvider,
+        });
+        await expect(promise).rejects.toBeInstanceOf(VariableProviderError);
+        await expect(promise).rejects.toBeInstanceOf(ConfigError);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T8: loadProject forwards its abort signal into the varProvider call', async () => {
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      const controller = new AbortController();
+      let receivedSignal: AbortSignal | undefined;
+      const observingProvider = {
+        provide(
+          _names: string[],
+          options?: { signal?: AbortSignal }
+        ): Promise<Record<string, string>> {
+          receivedSignal = options?.signal;
+          return Promise.resolve({ X: 'value' });
+        },
+      };
+      try {
+        await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: observingProvider,
+          signal: controller.signal,
+        });
+        expect(receivedSignal).toBe(controller.signal);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T9: an aborted signal is observable by the varProvider before it hangs', async () => {
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      const controller = new AbortController();
+      controller.abort();
+      const abortAwareProvider = {
+        provide(
+          _names: string[],
+          options?: { signal?: AbortSignal }
+        ): Promise<Record<string, string>> {
+          if (options?.signal?.aborted) {
+            return Promise.reject(
+              new VariableProviderError(
+                'aborted',
+                'abort-aware-provider',
+                undefined
+              )
+            );
+          }
+          return Promise.resolve({ X: 'value' });
+        },
+      };
+      try {
+        const promise = loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: abortAwareProvider,
+          signal: controller.signal,
+        });
+        await expect(promise).rejects.toBeInstanceOf(VariableProviderError);
       } finally {
         cleanup();
       }

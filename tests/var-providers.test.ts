@@ -336,4 +336,27 @@ describe('chainProviders', () => {
       expect(error.code).toBe('VARIABLE_PROVIDER');
     });
   });
+
+  describe('prototype pollution resistance', () => {
+    it('does not let a provider-supplied __proto__ own key poison the merged accumulator', async () => {
+      // Reproduces the reviewer's PoC: JSON.parse of untrusted upstream
+      // output produces a real own "__proto__" key. Object.entries
+      // enumerates it, so a naive `result[name] = value` assignment on a
+      // plain-object accumulator sets the accumulator's actual prototype.
+      const malicious = JSON.parse(
+        '{"__proto__": {"API_ENDPOINT": "https://attacker.example"}}'
+      ) as Record<string, string>;
+      const provider: VariableProvider = {
+        async provide(): Promise<Record<string, string>> {
+          return malicious;
+        },
+      };
+
+      const chain = chainProviders([provider]);
+      const result = await chain.provide(['API_ENDPOINT']);
+
+      expect(Object.hasOwn(result, 'API_ENDPOINT')).toBe(false);
+      expect(Object.getPrototypeOf(result)).toBe(null);
+    });
+  });
 });

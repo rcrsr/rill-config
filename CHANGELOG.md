@@ -9,13 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- **Variable provider rename:** `VariableResolver` is renamed to `VariableProvider`, `envResolver` to `envProvider`, `literalResolver` to `literalProvider`, and `chainResolvers` to `chainProviders`; the interface method `.resolve(names)` is renamed to `.provide(names)`. A zero-caller audit found no consumers of these 4 symbols outside this package's own tests, so the rename carries no runtime migration for existing hosts. ([#13](https://github.com/rcrsr/rill-config/pull/13))
-- **`chainProviders` halts on `VariableProviderError`:** `chainProviders` now stops and propagates on `VariableProviderError` instead of `ResolverError`, keeping the variable-provider and scheme-resolver error families separate. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+- **Variable provider rename:** `VariableResolver` is renamed to `VariableProvider`, `envResolver` to `envProvider`, `literalResolver` to `literalProvider`, and `chainResolvers` to `chainProviders`; the interface method `.resolve(names)` is renamed to `.provide(names)`. A grep of this repository found no callers of these 4 symbols outside its own tests. The symbols were published in 0.19.0 through 0.19.3, so external hosts importing them must rename at the call site. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+- **`chainProviders` error type:** the error type documented for chain halts is now `VariableProviderError` rather than `ResolverError`, separating the variable-provider and scheme-resolver error families. Runtime behavior is unchanged: any error thrown by a provider halts the chain and propagates unwrapped. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+- **`VariableProvider.provide` signature:** `provide` now takes a second, optional `options: { signal?: AbortSignal }` argument. `loadProject` forwards its own `signal` option into the call, and `chainProviders` forwards `options` unchanged to each wrapped provider. Existing implementations that ignore the second argument keep working, but cannot be cancelled. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 
 ### Added
 
 - **`loadProject({ varProvider })`:** `loadProject` accepts an optional `varProvider: VariableProvider` to resolve `${VAR}` interpolation, defaulting to `envProvider()` when omitted; behavior for existing callers is unchanged. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 - **`VariableProviderError`:** New `ConfigError` subclass with code `VARIABLE_PROVIDER`, carrying `providerName` and `cause`, thrown when a supplied `VariableProvider` fails during interpolation. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+- **Variable-provider result validation:** `loadProject` now validates the object a `VariableProvider` returns. A non-object result, a `null` result, or any non-string value throws `VariableProviderError`. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+
+### Fixed
+
+- **Prototype-pollution hardening:** `chainProviders`, `envProvider`, and `literalProvider` build their result maps with `Object.create(null)` instead of `{}`. Name lookups use `Object.hasOwn` instead of the `in` operator. A provider result carrying an own `__proto__` key can no longer poison the merged accumulator or satisfy a lookup through the prototype chain. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 
 ## [0.19.3] - 2026-07-16
 

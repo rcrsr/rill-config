@@ -3,7 +3,10 @@
 // ============================================================
 
 export interface VariableProvider {
-  provide(names: string[]): Promise<Record<string, string>>;
+  provide(
+    names: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<Record<string, string>>;
 }
 
 // ============================================================
@@ -18,7 +21,10 @@ export interface VariableProvider {
 export function envProvider(): VariableProvider {
   return {
     async provide(names: string[]): Promise<Record<string, string>> {
-      const result: Record<string, string> = {};
+      const result: Record<string, string> = Object.create(null) as Record<
+        string,
+        string
+      >;
       for (const name of names) {
         const value = process.env[name];
         if (value !== undefined) {
@@ -44,7 +50,10 @@ export function literalProvider(
 ): VariableProvider {
   return {
     async provide(names: string[]): Promise<Record<string, string>> {
-      const result: Record<string, string> = {};
+      const result: Record<string, string> = Object.create(null) as Record<
+        string,
+        string
+      >;
       for (const name of names) {
         const value = values[name];
         if (value !== undefined) {
@@ -63,7 +72,8 @@ export function literalProvider(
 /**
  * Returns a provider that tries each provider in order.
  * Each provider handles the names it can; unresolved names pass to the next.
- * Halts immediately on `VariableProviderError` from any provider and propagates it.
+ * Any error a provider throws halts the chain immediately and propagates
+ * unwrapped, regardless of the error's type.
  * Unresolved names after all providers are exhausted are omitted (no error).
  * An empty provider list returns an empty map for any input.
  */
@@ -71,21 +81,27 @@ export function chainProviders(
   providers: VariableProvider[]
 ): VariableProvider {
   return {
-    async provide(names: string[]): Promise<Record<string, string>> {
-      const result: Record<string, string> = {};
+    async provide(
+      names: string[],
+      options?: { signal?: AbortSignal }
+    ): Promise<Record<string, string>> {
+      const result: Record<string, string> = Object.create(null) as Record<
+        string,
+        string
+      >;
       let remaining = names;
 
       for (const provider of providers) {
         if (remaining.length === 0) break;
 
-        // VariableProviderError propagates immediately without catch (EC-2, EC-3)
-        const resolved = await provider.provide(remaining);
+        // Any error thrown here propagates immediately without catch.
+        const resolved = await provider.provide(remaining, options);
 
         for (const [name, value] of Object.entries(resolved)) {
           result[name] = value;
         }
 
-        remaining = remaining.filter((name) => !(name in resolved));
+        remaining = remaining.filter((name) => !Object.hasOwn(resolved, name));
       }
 
       return result;

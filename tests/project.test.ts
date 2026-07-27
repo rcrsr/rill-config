@@ -1,10 +1,18 @@
 /**
  * Tests for loadProject facade
- * Covers: HP-1, AC-1, AC-23
+ * Covers: HP-1, AC-1, AC-23; varProvider injection, env displacement, default
+ * env behavior, VariableProviderError propagation
  */
 
-import { loadProject, ConfigNotFoundError } from '@rcrsr/rill-config';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  loadProject,
+  ConfigNotFoundError,
+  ConfigEnvError,
+  ConfigError,
+  VariableProviderError,
+  literalProvider,
+} from '@rcrsr/rill-config';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -29,6 +37,19 @@ function writeTempConfig(content: string): {
 const MINIMAL_CONFIG = JSON.stringify({
   name: 'test-project',
   version: '1.0.0',
+});
+
+const CONFIG_WITH_VARS = JSON.stringify({
+  name: 'vars-project',
+  version: '1.0.0',
+  context: {
+    schema: {
+      apiKey: { type: 'string' },
+    },
+    values: {
+      apiKey: '${X}',
+    },
+  },
 });
 
 const CONFIG_WITH_CONTEXT = JSON.stringify({
@@ -203,6 +224,110 @@ describe('loadProject', () => {
       }).catch(() => undefined);
       expect(exitSpy).not.toHaveBeenCalled();
       exitSpy.mockRestore();
+    });
+  });
+
+  describe('varProvider option', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('T1: resolves a supplied provider value when the env var is unset', async () => {
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      try {
+        const result = await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: literalProvider({ X: 'from-provider' }),
+        });
+        expect(result.config.context?.values['apiKey']).toBe('from-provider');
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T2: a supplied provider value displaces an env value of the same name', async () => {
+      vi.stubEnv('X', 'from-env');
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      try {
+        const result = await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: literalProvider({ X: 'from-provider' }),
+        });
+        expect(result.config.context?.values['apiKey']).toBe('from-provider');
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T3: a supplied provider that omits a name does not fall back to env', async () => {
+      vi.stubEnv('X', 'from-env');
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      try {
+        const promise = loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: literalProvider({}),
+        });
+        await expect(promise).rejects.toBeInstanceOf(ConfigEnvError);
+        await expect(promise).rejects.toThrow(/X/);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T4: omitting the option falls back to process.env, matching prior behavior', async () => {
+      vi.stubEnv('X', 'from-env');
+      const { configPath, cleanup } = writeTempConfig(CONFIG_WITH_VARS);
+      try {
+        const result = await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+        });
+        expect(result.config.context?.values['apiKey']).toBe('from-env');
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('T5: a provider throw propagates as VariableProviderError before extension loading runs', async () => {
+      const config = JSON.stringify({
+        name: 'vars-and-mounts-project',
+        version: '1.0.0',
+        context: {
+          schema: {
+            apiKey: { type: 'string' },
+          },
+          values: {
+            apiKey: '${X}',
+          },
+        },
+        extensions: {
+          mounts: {
+            bogus: 'not-a-real-specifier-and-never-resolves',
+          },
+        },
+      });
+      const { configPath, cleanup } = writeTempConfig(config);
+      const throwingProvider = {
+        provide(): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError('provider failed', 'throwing', undefined)
+          );
+        },
+      };
+      try {
+        const promise = loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          varProvider: throwingProvider,
+        });
+        await expect(promise).rejects.toBeInstanceOf(VariableProviderError);
+        await expect(promise).rejects.toBeInstanceOf(ConfigError);
+      } finally {
+        cleanup();
+      }
     });
   });
 });

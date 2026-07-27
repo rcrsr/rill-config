@@ -95,3 +95,16 @@ export class ResolverError extends ConfigError {
     this.resolverName = resolverName;
   }
 }
+
+// ============================================================
+// VARIABLE PROVIDER ERRORS
+// ============================================================
+
+export class VariableProviderError extends ConfigError {
+  readonly code = 'VARIABLE_PROVIDER' as const;
+  readonly providerName: string;
+  constructor(message: string, providerName: string, cause: unknown) {
+    super(message, { cause });
+    this.providerName = providerName;
+  }
+}

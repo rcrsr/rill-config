@@ -8,7 +8,7 @@ import { dirname } from 'node:path';
 import { ConfigNotFoundError } from './errors.js';
 import { parseConfig } from './parse.js';
 import { extractVariables, interpolate } from './vars.js';
-import { envResolver } from './var-resolvers.js';
+import { envProvider } from './var-providers.js';
 import { checkRuntimeVersion, validateContext } from './validate.js';
 import { resolveMounts } from './mounts.js';
 import { loadExtensions, runDisposes } from './loader.js';
@@ -16,6 +16,7 @@ import { buildContextBindings, buildExtensionBindings } from './bindings.js';
 import { buildResolvers } from './resolvers.js';
 import type { RillValue } from '@rcrsr/rill';
 import type { ContextFieldSchema, ProjectResult } from './types.js';
+import type { VariableProvider } from './var-providers.js';
 
 // ============================================================
 // LOAD PROJECT
@@ -42,6 +43,15 @@ export async function loadProject(options: {
    * file's directory when omitted.
    */
   prefix?: string;
+  /**
+   * Optional variable provider used to resolve `${VAR}` names during config
+   * interpolation. Session `@{VAR}` vars are untouched: loadProject never
+   * calls substituteSessionVars (src/vars.ts:193), so a supplied provider
+   * has no effect on them. A supplied provider fully displaces process.env;
+   * defaults to envProvider() when omitted. Names no provider resolves
+   * still throw ConfigEnvError from interpolate (src/vars.ts:175).
+   */
+  varProvider?: VariableProvider;
 }): Promise<ProjectResult> {
   const { configPath, rillVersion, signal } = options;
   const prefix = options.prefix ?? dirname(configPath);
@@ -62,7 +72,8 @@ export async function loadProject(options: {
   // Step 2: Parse and interpolate config
   const config = parseConfig(raw);
   const vars = extractVariables(config);
-  const resolvedVars = await envResolver().resolve(vars.global);
+  const provider = options.varProvider ?? envProvider();
+  const resolvedVars = await provider.provide(vars.global);
   const interpolatedConfig = interpolate(config, resolvedVars);
 
   // Step 3: Runtime version check

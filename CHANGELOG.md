@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Variable provider rename:** `VariableResolver` is renamed to `VariableProvider`, `envResolver` to `envProvider`, `literalResolver` to `literalProvider`, and `chainResolvers` to `chainProviders`; the interface method `.resolve(names)` is renamed to `.provide(names)`. A zero-caller audit found no consumers of these 4 symbols outside this package's own tests, so the rename carries no runtime migration for existing hosts.
+- **`chainProviders` halts on `VariableProviderError`:** `chainProviders` now stops and propagates on `VariableProviderError` instead of `ResolverError`, keeping the variable-provider and scheme-resolver error families separate.
+
+### Added
+
+- **`loadProject({ varProvider })`:** `loadProject` accepts an optional `varProvider: VariableProvider` to resolve `${VAR}` interpolation, defaulting to `envProvider()` when omitted; behavior for existing callers is unchanged.
+- **`VariableProviderError`:** New `ConfigError` subclass with code `VARIABLE_PROVIDER`, carrying `providerName` and `cause`, thrown when a supplied `VariableProvider` fails during interpolation.
+
 ## [0.19.3] - 2026-07-16
 
 ### Fixed

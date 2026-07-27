@@ -203,6 +203,16 @@ describe('interpolate', () => {
     expect(result.host?.timeout).toBe(5000);
     expect(result.host?.maxCallStackDepth).toBe(100);
   });
+
+  it('throws ConfigEnvError for a name resolvable only via the prototype chain', () => {
+    const config = { name: '${API_ENDPOINT}' } as RillConfigFile;
+    const vars: Record<string, string> = {};
+    // Simulate a polluted accumulator: API_ENDPOINT is reachable only via
+    // the prototype chain, never as an own property.
+    Object.setPrototypeOf(vars, { API_ENDPOINT: 'https://attacker.example' });
+    expect(Object.hasOwn(vars, 'API_ENDPOINT')).toBe(false);
+    expect(() => interpolate(config, vars)).toThrow(ConfigEnvError);
+  });
 });
 
 // ============================================================

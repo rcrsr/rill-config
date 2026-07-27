@@ -24,12 +24,26 @@
     "typescript/no-duplicate-enum-values": "error",
     "typescript/no-unsafe-function-type": "error",
     "typescript/no-wrapper-object-types": "error",
-    "typescript/no-array-constructor": "error"
+    "typescript/no-array-constructor": "error",
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "process",
+        "property": "env",
+        "message": "Read env only via envProvider in src/var-providers.ts."
+      }
+    ]
   },
   "ignorePatterns": [
     "**/dist/**",
     "**/node_modules/**",
     "**/*.d.ts",
     "**/generated/**"
+  ],
+  "overrides": [
+    {
+      "files": ["src/var-providers.ts"],
+      "rules": { "no-restricted-properties": "off" }
+    }
   ]
 }

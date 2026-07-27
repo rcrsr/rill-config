@@ -80,14 +80,14 @@ export {
 } from './vars.js';
 
 // ============================================================
-// VARIABLE RESOLVERS
+// VARIABLE PROVIDERS
 // ============================================================
-export type { VariableResolver } from './var-resolvers.js';
+export type { VariableProvider } from './var-providers.js';
 export {
-  envResolver,
-  literalResolver,
-  chainResolvers,
-} from './var-resolvers.js';
+  envProvider,
+  literalProvider,
+  chainProviders,
+} from './var-providers.js';
 
 // ============================================================
 // ERROR CLASSES
@@ -108,4 +108,5 @@ export {
   BundleRestrictionError,
   HandlerArgError,
   ResolverError,
+  VariableProviderError,
 } from './errors.js';

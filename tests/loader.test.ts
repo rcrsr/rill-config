@@ -1,6 +1,7 @@
 /**
  * Tests for loadExtensions
- * Covers: HP-7, HP-8, EC-5, EC-6, EC-7, EC-10, EC-11, BC-1
+ * Covers: HP-7, HP-8, HP-9, HP-10, EC-5, EC-6, EC-7, EC-10, EC-11, EC-12,
+ *   EC-13, EC-14, EC-15, EC-16, EC-17, EC-18, BC-1
  * (AC-7, AC-8, AC-13, AC-14, AC-16, AC-20, AC-21, AC-23)
  */
 
@@ -780,6 +781,151 @@ describe('loadExtensions', () => {
       expect(
         (Object.prototype as unknown as Record<string, unknown>)['polluted']
       ).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // HP-9, HP-10, EC-12..EC-18: extensionModules preload option
+  // ============================================================
+
+  describe('loadExtensions with extensionModules', () => {
+    it('HP-9: loads a mount via extensionModules without importing its package specifier', async () => {
+      // The specifier below intentionally resolves to nothing on disk and
+      // has no vi.mock() registered for it. If loadModules ever imported
+      // first and overwrote second, this import attempt would throw
+      // "Cannot find packages" before the preloaded value could be used.
+      // Do not "fix" this by pointing it at a real fixture; an
+      // unresolvable specifier is the point of the test.
+      const mounts = [makeMount('pkg', './__not-on-disk__.js')];
+      const extensionModules = new Map<string, unknown>([
+        [
+          'pkg',
+          { extensionManifest: { factory: () => ({ value: 'preloaded' }) } },
+        ],
+      ]);
+      const result = await loadExtensions(mounts, {}, { extensionModules });
+      expect(result.extTree['pkg']).toBe('preloaded');
+    });
+
+    it('HP-10: loads one preloaded mount alongside one dynamically-imported mount', async () => {
+      const mounts = [
+        makeMount('pre', './__not-on-disk-mixed__.js'),
+        makeMount('tools', '/fake/ext/valid-factory'),
+      ];
+      const extensionModules = new Map<string, unknown>([
+        [
+          'pre',
+          { extensionManifest: { factory: () => ({ value: 'preloaded' }) } },
+        ],
+      ]);
+      const result = await loadExtensions(mounts, {}, { extensionModules });
+      expect(result.extTree['pre']).toBe('preloaded');
+      expect(result.manifests.has('tools')).toBe(true);
+    });
+
+    it('EC-12: throws ExtensionLoadError when a preloaded module has no extensionManifest', async () => {
+      const mounts = [makeMount('noman', './__not-on-disk-noman__.js')];
+      const extensionModules = new Map<string, unknown>([
+        ['noman', { someOtherExport: 42 }],
+      ]);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow(ExtensionLoadError);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow('mounted at "noman"');
+    });
+
+    it('EC-13: throws ExtensionVersionError when a preloaded manifest version violates the mount constraint', async () => {
+      const mounts = [makeMount('vext', './__not-on-disk-vext__.js', '^2.0.0')];
+      const extensionModules = new Map<string, unknown>([
+        [
+          'vext',
+          {
+            extensionManifest: {
+              version: '1.0.0',
+              factory: () => ({ value: 'x' }),
+            },
+          },
+        ],
+      ]);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow(ExtensionVersionError);
+    });
+
+    it('EC-14: throws ExtensionLoadError with the actual type name for non-object preloaded values', async () => {
+      const cases: Array<[unknown, string]> = [
+        ['str', 'string'],
+        [42, 'number'],
+        [null, 'null'],
+        [true, 'boolean'],
+      ];
+      for (const [value, expectedType] of cases) {
+        const mounts = [makeMount('bad', './__not-on-disk-bad__.js')];
+        const extensionModules = new Map<string, unknown>([['bad', value]]);
+        try {
+          await loadExtensions(mounts, {}, { extensionModules });
+          throw new Error('expected loadExtensions to reject');
+        } catch (err) {
+          expect(err).toBeInstanceOf(ExtensionLoadError);
+          expect((err as Error).message).toContain(
+            `must be an object, got ${expectedType}`
+          );
+        }
+      }
+    });
+
+    it('EC-15: throws when a preloaded entry is explicitly undefined instead of falling back to import', async () => {
+      // Pins the `.has()`-over-`??` decision in loadModules: a `??`
+      // fallback would treat this explicit `undefined` as "not preloaded"
+      // and silently attempt the dynamic import instead.
+      const mounts = [makeMount('undef', './__not-on-disk-undef__.js')];
+      const extensionModules = new Map<string, unknown>([['undef', undefined]]);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow('must be an object, got undefined');
+    });
+
+    it('EC-16: throws ExtensionLoadError when a preloaded module key matches no mount', async () => {
+      const mounts = [makeMount('real', '/fake/ext/orphan-base')];
+      const extensionModules = new Map<string, unknown>([
+        ['typo', { extensionManifest: { factory: () => ({ value: 'x' }) } }],
+      ]);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow(ExtensionLoadError);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow('Preloaded module key "typo" does not match any mount');
+    });
+
+    it('EC-17: throws for an orphan preloaded key before importing any mount module', async () => {
+      validationOrderCaptured.imported = false;
+      const mounts = [
+        makeMount('real', '/fake/ext/validation-order-side-effect'),
+      ];
+      const extensionModules = new Map<string, unknown>([
+        ['typo', { extensionManifest: { factory: () => ({ value: 'x' }) } }],
+      ]);
+      await expect(
+        loadExtensions(mounts, {}, { extensionModules })
+      ).rejects.toThrow(ExtensionLoadError);
+      expect(validationOrderCaptured.imported).toBe(false);
+    });
+
+    it('EC-18: keys a dot-path mount "a.b" by the full string, not just the first segment', async () => {
+      const mounts = [makeMount('a.b', './__not-on-disk-dotpath__.js')];
+      const extensionModules = new Map<string, unknown>([
+        [
+          'a.b',
+          { extensionManifest: { factory: () => ({ value: 'nested' }) } },
+        ],
+      ]);
+      const result = await loadExtensions(mounts, {}, { extensionModules });
+      expect((result.extTree['a'] as Record<string, unknown>)['b']).toBe(
+        'nested'
+      );
     });
   });
 });

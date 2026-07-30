@@ -1,7 +1,7 @@
 /**
  * Tests for loadProject facade
- * Covers: HP-1, AC-1, AC-23; varProvider injection, env displacement, default
- * env behavior, VariableProviderError propagation
+ * Covers: HP-1, HP-2, AC-1, AC-23; varProvider injection, env displacement,
+ * default env behavior, VariableProviderError propagation
  */
 
 import {
@@ -166,6 +166,41 @@ describe('loadProject', () => {
         });
         expect(result.contextBindings).toContain('apiUrl');
         expect(result.contextBindings).toContain('debug');
+      } finally {
+        cleanup();
+      }
+    });
+  });
+
+  describe('HP-2: extensionModules option', () => {
+    it('forwards a preloaded module into loadExtensions, bypassing package resolution', async () => {
+      const config = JSON.stringify({
+        name: 'preloaded-mount-project',
+        extensions: {
+          mounts: {
+            preloaded: 'this-specifier-does-not-exist-on-disk',
+          },
+        },
+      });
+      const { configPath, cleanup } = writeTempConfig(config);
+      // The specifier above is intentionally unresolvable: if loadProject
+      // failed to forward extensionModules, loadExtensions would attempt
+      // resolveSpecifier + import() for it and throw "Cannot find packages".
+      const extensionModules = new Map<string, unknown>([
+        [
+          'preloaded',
+          { extensionManifest: { factory: () => ({ value: 'from-preload' }) } },
+        ],
+      ]);
+      try {
+        const result = await loadProject({
+          configPath,
+          rillVersion: '1.0.0',
+          extensionModules,
+        });
+        expect((result.extTree as Record<string, unknown>)['preloaded']).toBe(
+          'from-preload'
+        );
       } finally {
         cleanup();
       }

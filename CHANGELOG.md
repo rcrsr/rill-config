@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`loadProject({ varProvider })`:** `loadProject` accepts an optional `varProvider: VariableProvider` to resolve `${VAR}` interpolation, defaulting to `envProvider()` when omitted; behavior for existing callers is unchanged. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 - **`VariableProviderError`:** New `ConfigError` subclass with code `VARIABLE_PROVIDER`, carrying `providerName` and `cause`, thrown when a supplied `VariableProvider` fails during interpolation. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 - **Variable-provider result validation:** `loadProject` now validates the object a `VariableProvider` returns. A non-object result, a `null` result, or any non-string value throws `VariableProviderError`. ([#13](https://github.com/rcrsr/rill-config/pull/13))
+- **`loadProject({ extensionModules }) / loadExtensions(..., { extensionModules })`:** Callers may supply preloaded extension modules keyed by mount name, bypassing the dynamic import so a project with relative-path mounts can be bundled into a single-file artifact. Mounts absent from the map are imported as before. A non-object entry, an entry explicitly set to `undefined`, or a key matching no mount throws `ExtensionLoadError`. Preloaded modules still undergo manifest and version validation. ([#16](https://github.com/rcrsr/rill-config/pull/16))
 
 ### Fixed
 

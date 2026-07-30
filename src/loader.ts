@@ -265,7 +265,10 @@ async function loadModules(
   // aggregation only needs an index-tagged Promise.allSettled, not serial
   // execution). The real cost of the current design: N sequential dynamic
   // imports on the startup path, so load latency is the sum of per-mount
-  // import latency rather than the max.
+  // import latency rather than the max. A mount present in
+  // `options.extensionModules` skips the import entirely via the `continue`
+  // below, so N is `mounts.length - extensionModules.size`, not
+  // `mounts.length`, once preloaded mounts are in play.
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
   const transitiveMisses: string[] = [];
@@ -276,9 +279,15 @@ async function loadModules(
 
     if (preloaded?.has(mount.mountPath) === true) {
       const value = preloaded.get(mount.mountPath);
-      if (typeof value !== 'object' || value === null) {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        const actualType =
+          value === null
+            ? 'null'
+            : Array.isArray(value)
+              ? 'array'
+              : typeof value;
         throw new ExtensionLoadError(
-          `Preloaded module for mount "${mount.mountPath}" must be an object, got ${value === null ? 'null' : typeof value}`
+          `Preloaded module for mount "${mount.mountPath}" must be an object, got ${actualType}`
         );
       }
       modules.set(mount.mountPath, value as Record<string, unknown>);

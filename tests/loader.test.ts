@@ -828,12 +828,13 @@ describe('loadExtensions', () => {
       const extensionModules = new Map<string, unknown>([
         ['noman', { someOtherExport: 42 }],
       ]);
-      await expect(
-        loadExtensions(mounts, {}, { extensionModules })
-      ).rejects.toThrow(ExtensionLoadError);
-      await expect(
-        loadExtensions(mounts, {}, { extensionModules })
-      ).rejects.toThrow('mounted at "noman"');
+      try {
+        await loadExtensions(mounts, {}, { extensionModules });
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        expect((err as Error).message).toContain('mounted at "noman"');
+      }
     });
 
     it('EC-13: throws ExtensionVersionError when a preloaded manifest version violates the mount constraint', async () => {
@@ -860,6 +861,7 @@ describe('loadExtensions', () => {
         [42, 'number'],
         [null, 'null'],
         [true, 'boolean'],
+        [['a', 'b'], 'array'],
       ];
       for (const [value, expectedType] of cases) {
         const mounts = [makeMount('bad', './__not-on-disk-bad__.js')];
@@ -892,12 +894,15 @@ describe('loadExtensions', () => {
       const extensionModules = new Map<string, unknown>([
         ['typo', { extensionManifest: { factory: () => ({ value: 'x' }) } }],
       ]);
-      await expect(
-        loadExtensions(mounts, {}, { extensionModules })
-      ).rejects.toThrow(ExtensionLoadError);
-      await expect(
-        loadExtensions(mounts, {}, { extensionModules })
-      ).rejects.toThrow('Preloaded module key "typo" does not match any mount');
+      try {
+        await loadExtensions(mounts, {}, { extensionModules });
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        expect((err as Error).message).toContain(
+          'Preloaded module key "typo" does not match any mount'
+        );
+      }
     });
 
     it('EC-17: throws for an orphan preloaded key before importing any mount module', async () => {

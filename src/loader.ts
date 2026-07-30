@@ -256,7 +256,7 @@ function linkSignal(parentSignal: AbortSignal | undefined): {
  */
 async function loadModules(
   mounts: ResolvedMount[],
-  prefix?: string
+  options?: LoadExtensionsOptions
 ): Promise<Map<string, Record<string, unknown>>> {
   // NOTE: imports run sequentially to keep the aggregated
   // `Cannot find packages: ...` error text in stable mount order via a
@@ -265,18 +265,39 @@ async function loadModules(
   // aggregation only needs an index-tagged Promise.allSettled, not serial
   // execution). The real cost of the current design: N sequential dynamic
   // imports on the startup path, so load latency is the sum of per-mount
-  // import latency rather than the max.
+  // import latency rather than the max. A mount present in
+  // `options.extensionModules` skips the import entirely via the `continue`
+  // below, so N is `mounts.length - extensionModules.size`, not
+  // `mounts.length`, once preloaded mounts are in play.
   const modules = new Map<string, Record<string, unknown>>();
   const missingPackages: string[] = [];
   const transitiveMisses: string[] = [];
+  const preloaded = options?.extensionModules;
 
   for (const mount of mounts) {
     const pkg = mount.packageSpecifier;
+
+    if (preloaded?.has(mount.mountPath) === true) {
+      const value = preloaded.get(mount.mountPath);
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        const actualType =
+          value === null
+            ? 'null'
+            : Array.isArray(value)
+              ? 'array'
+              : typeof value;
+        throw new ExtensionLoadError(
+          `Preloaded module for mount "${mount.mountPath}" must be an object, got ${actualType}`
+        );
+      }
+      modules.set(mount.mountPath, value as Record<string, unknown>);
+      continue;
+    }
+
     try {
-      const mod = (await import(resolveSpecifier(pkg, prefix))) as Record<
-        string,
-        unknown
-      >;
+      const mod = (await import(
+        resolveSpecifier(pkg, options?.prefix)
+      )) as Record<string, unknown>;
       modules.set(mount.mountPath, mod);
     } catch (err) {
       if (isModuleNotFoundError(err)) {
@@ -354,7 +375,9 @@ function validateManifests(
       mod['extensionManifest'] === null ||
       typeof mod['extensionManifest'] !== 'object'
     ) {
-      throw new ExtensionLoadError(`${pkg} does not export extensionManifest`);
+      throw new ExtensionLoadError(
+        `${pkg} (mounted at "${mount.mountPath}") does not export extensionManifest`
+      );
     }
 
     const manifest = mod['extensionManifest'] as ExtensionManifest;
@@ -396,6 +419,38 @@ function assertNoOrphanConfigKeys(
     if (!mountFirstSegments.has(key) && !mountPaths.has(key)) {
       throw new ConfigValidationError(
         `Config key ${key} does not match any mount`
+      );
+    }
+  }
+}
+
+type LoadExtensionsOptions = {
+  signal?: AbortSignal;
+  prefix?: string;
+  // A data map, not a `ModuleProvider` interface (§NOD.8.1): a provider
+  // would ship one implementation, collide with `prefix`, and leave
+  // third-party ERR_MODULE_NOT_FOUND participation undefined.
+  extensionModules?: ReadonlyMap<string, unknown>;
+};
+
+/**
+ * Phase 3b: every key in a caller-supplied `extensionModules` map must
+ * match a mount path. Guarded here (unlike `literalProvider`'s silent
+ * extra-key handling) because a mistyped key otherwise degrades to a
+ * disk import that succeeds locally and breaks only in a bundled artifact,
+ * with no loud downstream failure to catch it.
+ */
+function assertNoOrphanPreloadedModules(
+  extensionModules: ReadonlyMap<string, unknown> | undefined,
+  mounts: ResolvedMount[]
+): void {
+  if (extensionModules === undefined) return;
+
+  const mountPaths = new Set(mounts.map((mount) => mount.mountPath));
+  for (const key of extensionModules.keys()) {
+    if (!mountPaths.has(key)) {
+      throw new ExtensionLoadError(
+        `Preloaded module key "${key}" does not match any mount`
       );
     }
   }
@@ -513,14 +568,15 @@ async function invokeFactories(
 export async function loadExtensions(
   mounts: ResolvedMount[],
   config: Record<string, Record<string, unknown>>,
-  options?: { signal?: AbortSignal; prefix?: string }
+  options?: LoadExtensionsOptions
 ): Promise<LoadedProject> {
   // Cheap, side-effect-free validation runs before any arbitrary imported
   // module code executes (loadModules dynamically imports mount packages).
   detectNamespaceCollisions(mounts);
   assertNoOrphanConfigKeys(config, mounts);
+  assertNoOrphanPreloadedModules(options?.extensionModules, mounts);
 
-  const modules = await loadModules(mounts, options?.prefix);
+  const modules = await loadModules(mounts, options);
   const manifests = validateManifests(mounts, modules);
 
   const { tree, disposes, errorCodes } = await invokeFactories(

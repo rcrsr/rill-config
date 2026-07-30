@@ -54,6 +54,22 @@ export async function loadProject(options: {
    * custom provider never touches the environment.
    */
   varProvider?: VariableProvider;
+  /**
+   * Optional preloaded extension modules, keyed by mount name exactly as
+   * written in `extensions.mounts` in the config. A dot-path mount uses the
+   * full dotted path (`"a.b"`), not the first segment. Mounts absent from
+   * the map are imported normally via the existing specifier resolution, so
+   * this is backward compatible. A key present but whose value is not a
+   * non-null object throws ExtensionLoadError; this includes a key
+   * explicitly set to `undefined`, which is an error rather than a
+   * fall-through to import. A key matching no mount throws
+   * ExtensionLoadError. Preloaded modules still undergo manifest presence
+   * and semver version validation, unchanged. Motivation: a fully
+   * runtime-computed `import()` is opaque to bundlers, so pre-loading lets a
+   * host compile a project with relative-path mounts into a single-file
+   * artifact and stop depending on `process.cwd()` for mount resolution.
+   */
+  extensionModules?: ReadonlyMap<string, unknown>;
 }): Promise<ProjectResult> {
   const { configPath, rillVersion, signal } = options;
   const prefix = options.prefix ?? dirname(configPath);
@@ -118,6 +134,9 @@ export async function loadProject(options: {
       {
         ...(signal !== undefined ? { signal } : {}),
         ...(prefix !== undefined ? { prefix } : {}),
+        ...(options.extensionModules !== undefined
+          ? { extensionModules: options.extensionModules }
+          : {}),
       }
     );
     extTree = loaded.extTree;

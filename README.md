@@ -65,11 +65,14 @@ loadExtensions(
   options?: {
     prefix?: string;      // optional: absolute path to npm prefix directory; defaults to process.cwd()
     signal?: AbortSignal;
+    extensionModules?: ReadonlyMap<string, unknown>; // optional: preloaded modules, keyed by mount path
   }
 ): Promise<LoadedProject>
 ```
 
 **`prefix` parameter:** An absolute filesystem path to the directory acting as the npm prefix. Node resolves bare specifiers from `<prefix>/node_modules/`, and relative specifiers (`./`, `../`) resolve against `<prefix>` as well. When omitted, resolution anchors at `process.cwd()` (existing behavior). When provided, callers compute this as `path.join(projectDir, '.rill/npm')`. Absolute and `file://` specifiers are unaffected by `prefix`.
+
+**`extensionModules` parameter:** A map of preloaded extension modules, keyed by mount name exactly as written in `extensions.mounts`. A dot-path mount uses the full dotted path (`"a.b"`), not its first segment. A mount present in the map skips `resolveSpecifier` and `import()` entirely; mounts absent from the map keep today's behavior, so this option is backward compatible. This exists because `resolveSpecifier` computes its `import()` argument fully at runtime, which no bundler can see through. A project mounting a local extension by relative path cannot compile into a single-file artifact. A static `import` statement that a host writes by hand, passed through this map, lets a bundler follow it instead. A host that preloads every mount also stops depending on `process.cwd()` for mount resolution. A key present whose value is not a non-null object throws `ExtensionLoadError`. This includes a key explicitly set to `undefined`, which is treated as an error rather than a fall-through to import. A key that matches no mount also throws `ExtensionLoadError`. Preloaded modules still undergo the same manifest presence and semver version validation as imported ones.
 
 | Export | Purpose |
 |--------|---------|
@@ -113,6 +116,7 @@ loadProject(options: {
   prefix?: string;      // optional: absolute path to npm prefix directory; defaults to the config file's directory
   signal?: AbortSignal;
   varProvider?: VariableProvider; // optional: resolves `${VAR}` names during interpolation; defaults to envProvider()
+  extensionModules?: ReadonlyMap<string, unknown>; // optional: preloaded modules, keyed by mount path
 }): Promise<ProjectResult>
 ```
 
@@ -120,7 +124,22 @@ loadProject(options: {
 
 **`varProvider` parameter:** A `VariableProvider` used to resolve `${VAR}` names during config interpolation. When supplied, it displaces `process.env` entirely; when omitted, `loadProject` defaults to `envProvider()`. It applies to `${VAR}` interpolation only; session `@{VAR}` vars pass through unaffected, since `loadProject` never calls `substituteSessionVars`. Names no provider resolves still throw `ConfigEnvError` from `interpolate`, unchanged from current behavior. `loadProject` forwards its own `signal` option into the provider call as `{ signal }`. It also validates the resolved result at runtime: a non-object return, a `null` return, or any non-string value throws `VariableProviderError`.
 
+**`extensionModules` parameter:** Forwarded to `loadExtensions` unchanged; see the `extensionModules` description under Extension Loading above for its keying, guards, and bundling motivation.
+
 `loadProject` combines all steps: resolve config, validate, load extensions, build resolvers, and generate bindings.
+
+A host that wants a project bundled into a single file passes `extensionModules` alongside a static import. This lets the bundler follow the import instead of the runtime-computed specifier `loadExtensions` would otherwise pass to `import()`:
+
+```typescript
+import { loadProject } from '@rcrsr/rill-config';
+import * as myext from './extensions/my-ext/index.ts';
+
+const project = await loadProject({
+  configPath: '/path/to/project/rill-config.json',
+  rillVersion: '0.19.0',
+  extensionModules: new Map([['myext', myext]]),
+});
+```
 
 ### Variable Providers
 

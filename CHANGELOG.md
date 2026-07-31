@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- **Peer dependency:** `peerDependencies["@rcrsr/rill"]` moves from `~0.19.0` to `~0.20.0`. This release does not install alongside rill 0.19.x; hosts must upgrade rill to 0.20.0 in the same step.
+- **Peer dependency:** `peerDependencies["@rcrsr/rill"]` moves from `~0.19.0` to `~0.20.0`, that is `>=0.20.0 <0.21.0`. This release does not install alongside rill 0.19.x; hosts must upgrade rill to 0.20.x in the same step.
 - **Variable provider rename:** `VariableResolver` is renamed to `VariableProvider`, `envResolver` to `envProvider`, `literalResolver` to `literalProvider`, and `chainResolvers` to `chainProviders`; the interface method `.resolve(names)` is renamed to `.provide(names)`. A grep of this repository found no callers of these 4 symbols outside its own tests. The symbols were published in 0.19.0 through 0.19.3, so external hosts importing them must rename at the call site. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 - **`chainProviders` error type:** the error type documented for chain halts is now `VariableProviderError` rather than `ResolverError`, separating the variable-provider and scheme-resolver error families. Runtime behavior is unchanged: any error thrown by a provider halts the chain and propagates unwrapped. ([#13](https://github.com/rcrsr/rill-config/pull/13))
 - **`VariableProvider.provide` signature:** `provide` now takes a second, optional `options: { signal?: AbortSignal }` argument. `loadProject` forwards its own `signal` option into the call, and `chainProviders` forwards `options` unchanged to each wrapped provider. Existing implementations that ignore the second argument keep working, but cannot be cancelled. ([#13](https://github.com/rcrsr/rill-config/pull/13))
@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dependencies:** built and tested against `@rcrsr/rill` 0.20.0, up from 0.19.6. The rill 0.20.0 API required no accommodation in `src/`; the full suite passes unchanged.
+- **Dependencies:** built and tested against `@rcrsr/rill` 0.20.0, up from 0.19.6. The rill 0.20.0 API required no accommodation in `src/`; the full suite passes unchanged. Regenerating the lockfile also moved the dev-only `@emnapi/core` and `@emnapi/runtime` peer resolution from 1.11.0 to 1.11.1 under vitest, vite, and rolldown. That churn is confined to an optional wasm fallback binding and does not reach `dependencies` or the published `dist/`.
 
 ## [0.19.3] - 2026-07-16
 

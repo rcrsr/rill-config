@@ -1,12 +1,25 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "oxc"],
+  // Naming this array replaces oxlint's CLI defaults rather than extending
+  // them, so a plugin left out here is silently off even though the tool
+  // enables it by default. `unicorn` is the one that bites: it is default-on
+  // from the CLI and was inert in this repo until it was listed. Every plugin
+  // this repo wants is therefore named explicitly, including the ones that
+  // report nothing. See dev/REPO-STANDARDS.md STD-LINT-5 and STD-LINT-8.
+  //
+  // Measured on this tree with the full src/ + tests/ scope: `import`,
+  // `promise`, and `unicorn` report 0 findings each. That is not evidence they
+  // are pointless, since most of their rules sit in categories this config does
+  // not enable; they stay listed so a future finding surfaces.
+  "plugins": ["typescript", "oxc", "import", "vitest", "promise", "unicorn"],
   "categories": {
     "correctness": "error"
   },
   "rules": {
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "typescript/no-explicit-any": "warn",
+    "eqeqeq": "error",
+    "no-shadow": "error",
+    "typescript/no-explicit-any": "error",
     "typescript/explicit-function-return-type": "off",
     "typescript/no-namespace": "error",
     "typescript/no-this-alias": "error",
@@ -25,6 +38,7 @@
     "typescript/no-unsafe-function-type": "error",
     "typescript/no-wrapper-object-types": "error",
     "typescript/no-array-constructor": "error",
+
     "no-restricted-properties": [
       "error",
       {
@@ -32,7 +46,29 @@
         "property": "env",
         "message": "Read env only via envProvider in src/var-providers.ts."
       }
-    ]
+    ],
+
+    // These three ship in the vitest plugin's `correctness` category, so loading
+    // the plugin above turns them on against the `categories` setting. Each is
+    // switched off deliberately rather than by omission, with counts measured on
+    // this tree at the full src/ + tests/ scope. See STD-LINT-6.
+    //
+    // - vitest/no-conditional-expect (25 hits, all tests/loader.test.ts): the
+    //   suite asserts on a rejection from inside the catch block, which is where
+    //   the error is in scope. That is the assertion, not a conditional one.
+    // - vitest/require-to-throw-message (1 hit, tests/resolve-specifier.test.ts):
+    //   stylistic. That test asserts the call throws at all; the message is
+    //   Node's own and is not this package's contract.
+    // - vitest/require-mock-type-parameters (1 hit, tests/resolve.test.ts):
+    //   stylistic. `vi.fn(actual.existsSync)` already infers from the function it
+    //   wraps, so an explicit type parameter would only restate it.
+    "vitest/no-conditional-expect": "off",
+    "vitest/require-to-throw-message": "off",
+    "vitest/require-mock-type-parameters": "off"
+
+    // `suspicious` and `perf` are not enabled as categories here. rill measured
+    // and declined both; this package is a strict subset of the same idioms and
+    // shares the reference config's decision rather than diverging from it.
   },
   "ignorePatterns": [
     "**/dist/**",
@@ -40,10 +76,24 @@
     "**/*.d.ts",
     "**/generated/**"
   ],
+  "jsPlugins": ["./dev/lint-rules/index.js"],
   "overrides": [
     {
       "files": ["src/var-providers.ts"],
       "rules": { "no-restricted-properties": "off" }
+    },
+    {
+      // Scoped to shipped source: src/ is what anyone reading the published
+      // package sees, and conduct/ identifiers are unresolvable there. This
+      // repository has a conduct/ directory, so STD-LINT-3 applies.
+      //
+      // rill/no-duplicate-error-id is deliberately NOT enabled: it keys on
+      // RuntimeError construction, and this package constructs only ConfigError
+      // subclasses, so it has nothing to match.
+      "files": ["src/**/*.{ts,tsx}"],
+      "rules": {
+        "rill/no-spec-id-reference": "error"
+      }
     }
   ]
 }

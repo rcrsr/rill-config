@@ -5,7 +5,7 @@
   // enables it by default. `unicorn` is the one that bites: it is default-on
   // from the CLI and was inert in this repo until it was listed. Every plugin
   // this repo wants is therefore named explicitly, including the ones that
-  // report nothing. See dev/REPO-STANDARDS.md STD-LINT-5 and STD-LINT-8.
+  // report nothing. See REPO-STANDARDS.md STD-LINT-5 and STD-LINT-8.
   //
   // Measured on this tree with the full src/ + tests/ scope: `import`,
   // `promise`, and `unicorn` report 0 findings each. That is not evidence they
@@ -76,23 +76,41 @@
     "**/*.d.ts",
     "**/generated/**"
   ],
-  "jsPlugins": ["./dev/lint-rules/index.js"],
+  // Resolved as a package specifier, not a relative path. The subpath export is
+  // the path a consumer actually travels, so pointing at the file inside
+  // node_modules would leave a broken `exports` map undetected here.
+  //
+  // Loading the plugin registers the `rill/*` rules without enabling any of
+  // them; each one is opted into under `overrides` below.
+  "jsPlugins": ["@rcrsr/rill-dev/lint-rules"],
   "overrides": [
     {
       "files": ["src/var-providers.ts"],
       "rules": { "no-restricted-properties": "off" }
     },
     {
-      // Scoped to shipped source: src/ is what anyone reading the published
-      // package sees, and conduct/ identifiers are unresolvable there. This
-      // repository has a conduct/ directory, so STD-LINT-3 applies.
+      // Both rill/* rules are scoped to shipped source. src/ is what anyone
+      // reading the published package sees, and it is also where every error is
+      // constructed; tests/ is excluded from the first rule on purpose, because
+      // its `Covers:` headers are spec IDs by design.
       //
-      // rill/no-duplicate-error-id is deliberately NOT enabled: it keys on
-      // RuntimeError construction, and this package constructs only ConfigError
-      // subclasses, so it has nothing to match.
-      "files": ["src/**/*.{ts,tsx}"],
+      // The glob is src/ only, not src/ + tests/, and `.ts` only: there is no
+      // TSX in this package, so matching it would describe a surface that does
+      // not exist.
+      //
+      // - no-spec-id-reference: conduct/ identifiers are unresolvable for a
+      //   reader of the published package. This repository has a conduct/
+      //   directory, so STD-LINT-3 applies.
+      // - no-duplicate-error-id: matches nothing today. It binds to the bare
+      //   identifier `RuntimeError` and to `RuntimeError.fromNode`, and this
+      //   package constructs only ConfigError subclasses. It is enabled anyway
+      //   because a no-op rule costs nothing, whereas leaving it off fails
+      //   silently: the day a module imports rill's RuntimeError, nobody will
+      //   remember there was a rule for this.
+      "files": ["src/**/*.ts"],
       "rules": {
-        "rill/no-spec-id-reference": "error"
+        "rill/no-spec-id-reference": "error",
+        "rill/no-duplicate-error-id": "error"
       }
     }
   ]

@@ -1,6 +1,6 @@
 name: CodeQL
 
-# See dev/REPO-STANDARDS.md STD-SUP-6.
+# See REPO-STANDARDS.md STD-SUP-6.
 #
 # No path filtering, for the same reason as ci.yml: a skipped run reports no
 # status, and this workflow is a candidate required context.

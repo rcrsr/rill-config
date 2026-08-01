@@ -1,8 +1,17 @@
 name: Compatibility Check
 
-# Builds and tests against the newest published @rcrsr/rill this package's peer
-# range admits, so a rill release that breaks this consumer surfaces here rather
-# than in a user's install. See dev/REPO-STANDARDS.md STD-CI-9.
+# Builds and tests against the newest published version of each @rcrsr package
+# this repository consumes, so a release that breaks this consumer surfaces here
+# rather than in a user's install. See REPO-STANDARDS.md STD-CI-9.
+#
+# Two packages, and they fail in different places, which is why the job runs
+# more than build and test:
+#
+# - @rcrsr/rill is the peer. A break shows up in the build or the suite.
+# - @rcrsr/rill-dev carries the conformance checker and the lint rules. A break
+#   shows up in check:standards, check:lint, or test:rules and touches no
+#   TypeScript at all, so a build-and-test-only job would report green while
+#   `pnpm check` was already failing for everyone on main.
 on:
   schedule:
     - cron: '0 6 * * *' # Daily at 06:00 UTC
@@ -36,11 +45,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Update @rcrsr/rill to latest compatible
-        run: pnpm update @rcrsr/rill
+      - name: Update @rcrsr packages to latest compatible
+        run: pnpm update @rcrsr/rill @rcrsr/rill-dev
 
       - name: Build
         run: pnpm run build
 
       - name: Run tests
         run: pnpm run test
+
+      # The three checks that exercise @rcrsr/rill-dev. Run explicitly rather
+      # than via `pnpm run check`, which would also re-run the build and the
+      # suite above and add format and typecheck legs that neither package can
+      # affect.
+      - name: Run the lint rules' own tests
+        run: pnpm run test:rules
+
+      - name: Lint
+        run: pnpm run check:lint
+
+      - name: Check standards
+        run: pnpm run check:standards

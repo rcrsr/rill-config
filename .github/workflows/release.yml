@@ -11,7 +11,7 @@ permissions:
 
 # Serialized on a fixed group and never cancelled. Cancelling a publish leaves
 # the registry holding a partial release, which the pre-publish existence check
-# then reads as already-done on the retry. See dev/REPO-STANDARDS.md STD-CI-6.
+# then reads as already-done on the retry. See REPO-STANDARDS.md STD-CI-6.
 concurrency:
   group: release-${{ github.workflow }}
   cancel-in-progress: false
@@ -75,7 +75,7 @@ jobs:
           # Without pipefail the `pnpm publish | tee` below reports tee's exit
           # status, so a failed publish would read as success and the job would
           # go on to cut a GitHub Release for a package that never shipped.
-          # See dev/REPO-STANDARDS.md STD-REL-6.
+          # See REPO-STANDARDS.md STD-REL-6.
           set -o pipefail
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")

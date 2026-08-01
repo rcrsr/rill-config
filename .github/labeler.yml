@@ -27,7 +27,7 @@
 #        area:errors    errors.ts -- the ConfigError hierarchy. A new error
 #                       class or a message change lives here.
 #        area:docs      README, CHANGELOG, CLAUDE.md.
-#        area:dx        CI, toolchain, dev/ assets, test harness, root config.
+#        area:dx        CI, toolchain, scripts, test harness, root config.
 #                       Anything no consumer of @rcrsr/rill-config sees. A root
 #                       deps bump touches none of the source globs above, so it
 #                       would otherwise get no area at all.
@@ -140,7 +140,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - '.github/**'
-          - 'dev/**'
+          - 'scripts/**'
           - '.claude/**'
           # Root toolchain inputs. A root-only deps or interpreter-pin bump
           # touches none of the source globs above, so it would otherwise get

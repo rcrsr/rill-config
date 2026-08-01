@@ -4,7 +4,7 @@ name: CI
 # with required status checks: `paths-ignore` prevents the run entirely, so a
 # required context is never reported and the PR blocks forever; a job-level
 # `if:` gate reports "skipped", which never satisfies a required context. See
-# dev/REPO-STANDARDS.md STD-CI-7. This workflow also runs check:standards,
+# REPO-STANDARDS.md STD-CI-7. This workflow also runs check:standards,
 # which reads Markdown and workflow files, so filtering `**/*.md` would skip
 # exactly the check that validates the changed files.
 #
@@ -60,20 +60,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `pnpm run check` ends with `check:standards`, so the tree-readable
+      # conformance elements run here and need no step of their own.
+      #
+      # It runs without `--remote`, deliberately. That flag adds §1 merge gates
+      # and §13 repository settings, and neither belongs in the PR path: a pull
+      # request cannot change host state, so gating merges on it means one
+      # out-of-band settings change turns every open PR red for a reason no
+      # author can fix. It would also decide nothing here. GITHUB_TOKEN gets a
+      # repository object with the administrative fields omitted and a 404 from
+      # branches/*/protection, so both groups report as unchecked and the CI
+      # element count is identical with and without the flag. Making it decide
+      # anything means an admin-scoped PAT or a GitHub App in the PR path, to
+      # check settings a PR cannot alter.
+      #
+      # `rill-check-standards --remote` is a maintainer task, run from an
+      # authenticated shell when repository settings change. See CLAUDE.md.
       - name: Run checks
         run: pnpm run check
-
-  # A stale copy of dev/ rots quietly, so a build fails on drift. This clones
-  # rather than using a sibling checkout because a runner has no ../rill. Raw
-  # git, not actions/checkout: a shallow public clone needs no action, so
-  # there is no SHA pin to keep current for it (STD-CI-8).
-  dev-assets:
-    name: Dev assets are current
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Check dev assets are current
-        run: |
-          git clone --depth 1 https://github.com/rcrsr/rill ../rill
-          ../rill/dev/apply.sh --check .

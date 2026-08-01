@@ -1,4 +1,4 @@
-# Code owners for rill-config. See dev/REPO-STANDARDS.md STD-SUP-7.
+# Code owners for rill-config. See REPO-STANDARDS.md STD-SUP-7.
 #
 # Last matching pattern wins, so the high-blast-radius paths sit at the bottom.
 
@@ -10,10 +10,10 @@
 /.github/                   @AndreBremer
 /.github/workflows/         @AndreBremer
 
-# Shared dev assets: the conformance standard and the lint rules every
-# ecosystem repo derives from. This directory is a copy of rill's, and a change
-# made here rather than upstream is lost on the next apply.sh run.
-/dev/                       @AndreBremer
+# Toolchain bootstrap. The shared dev assets it used to sit beside now come
+# from the @rcrsr/rill-dev devDependency; this script stays local because it
+# performs the install that fetches that package.
+/scripts/                   @AndreBremer
 
 # Toolchain and lint policy. Changes here silently alter what CI accepts.
 /.oxlintrc.json             @AndreBremer

@@ -1,6 +1,6 @@
 # pnpm settings. This repository is a single package and declares no `packages:`
 # key, so it is not a workspace; pnpm reads this file for settings either way,
-# which is where these three keys now live. See dev/REPO-STANDARDS.md §8 and §9.
+# which is where these three keys now live. See REPO-STANDARDS.md §8 and §9.
 
 # Dependencies allowed to run install scripts. pnpm 11 no longer reads
 # `pnpm.onlyBuiltDependencies` from package.json, which is the major-to-major
@@ -16,13 +16,23 @@ allowBuilds:
 # window would just defer every bump by an extra cycle. STD-SUP-3.
 minimumReleaseAge: 1440
 
+# Both entries are first-party @rcrsr packages, excluded by name rather than by
+# exact version so they survive the next release without a hand edit. STD-SUP-4.
+#
 # @rcrsr/rill is a peer pinned in lockstep to the matching rill minor, and the
 # compatibility workflow tests against its latest publish daily. Holding it for
 # 24 hours would mean that workflow tests the previous version on the day a
-# release lands, which is the one day it matters. Excluded by name, not by
-# exact version, so it survives the next release without a hand edit. STD-SUP-4.
+# release lands, which is the one day it matters.
+#
+# @rcrsr/rill-dev carries the conformance checker and the lint rules. A fix to
+# the standard is only useful once every repository picks it up; a 24-hour hold
+# would mean CI keeps failing on an already-fixed element for a day. The
+# supply-chain argument for the delay is also weaker here: the package has no
+# dependencies and no lifecycle scripts, so its blast radius is the dev
+# toolchain rather than the published artifact.
 minimumReleaseAgeExclude:
   - '@rcrsr/rill'
+  - '@rcrsr/rill-dev'
 
 # Fail the install when a package's trust evidence weakens against an
 # earlier-published version, for example a drop from a trusted publisher to

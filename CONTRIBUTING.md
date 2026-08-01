@@ -37,7 +37,9 @@ pnpm bootstrap
 
 `loadProject()` in `src/project.ts` is the top-level orchestrator. The `// Step N` comments in that file are the authority on step numbering.
 
-`dev/` is a copy of `rill`'s shared assets, placed by `rill/dev/apply.sh`. **Never edit it here.** Fixes go to `rcrsr/rill` and come back through `apply.sh`; CI fails on drift, and a local edit is lost on the next apply.
+`scripts/` holds the one shared script that cannot be a dependency: `bootstrap.sh` performs the install, so it cannot ship inside a package that install fetches.
+
+The rest of the shared dev assets — the conformance checker, the custom oxlint rules, and `REPO-STANDARDS.md` — come from the `@rcrsr/rill-dev` devDependency. **They are not in this tree, and nothing here should copy them into it.** A fix goes to `rcrsr/rill` under `packages/dev` and arrives here as a version bump.
 
 ## Commands
 
@@ -47,9 +49,12 @@ Full detail is in [CLAUDE.md](CLAUDE.md). The ones a contributor needs:
 pnpm check                 # the complete check set; must pass before review
 pnpm test                  # vitest run
 pnpm test tests/loader.test.ts   # one file
-pnpm check:standards       # repository conformance (--remote adds host settings)
+pnpm check:standards       # repository conformance
+pnpm test:rules            # the custom oxlint rules' own unit tests
 pnpm fix:format            # oxfmt
 ```
+
+`pnpm exec rill-check-standards --remote` adds the merge gates and repository settings, which live on GitHub and so are invisible to `pnpm check:standards`. It needs `gh` authenticated; without it those elements report as unchecked rather than failing.
 
 Vitest arguments pass straight through with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 

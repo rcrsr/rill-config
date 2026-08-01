@@ -532,14 +532,14 @@ async function invokeFactories(
         throw new ExtensionLoadError(`Factory for ${pkg} threw: ${reason}`);
       }
 
-      // EC-5 / AC-13: factory must return an object with a value property
+      // Factory must return an object with a value property.
       if (!('value' in result)) {
         throw new ExtensionLoadError(
           `Factory for ${pkg} returned result without value property`
         );
       }
 
-      // EC-6 / AC-14: value must not be undefined
+      // Value must not be undefined.
       if (result.value === undefined) {
         throw new ExtensionLoadError(
           `Factory for ${pkg} returned undefined value`
@@ -550,7 +550,7 @@ async function invokeFactories(
         disposes.push(result.dispose);
       }
 
-      // DD-2: store value at mount path by reference
+      // Store the value at its mount path by reference, not by copy.
       mountValue(tree, mount.mountPath, result.value);
     }
   } catch (err) {

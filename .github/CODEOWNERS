@@ -1,0 +1,30 @@
+# Code owners for rill-config. See dev/REPO-STANDARDS.md STD-SUP-7.
+#
+# Last matching pattern wins, so the high-blast-radius paths sit at the bottom.
+
+# Everything, unless a later rule overrides.
+*                           @AndreBremer
+
+# Release and CI machinery. A change here can disable every other gate in the
+# repository, publish from an unverified tree, or widen a token's scope.
+/.github/                   @AndreBremer
+/.github/workflows/         @AndreBremer
+
+# Shared dev assets: the conformance standard and the lint rules every
+# ecosystem repo derives from. This directory is a copy of rill's, and a change
+# made here rather than upstream is lost on the next apply.sh run.
+/dev/                       @AndreBremer
+
+# Toolchain and lint policy. Changes here silently alter what CI accepts.
+/.oxlintrc.json             @AndreBremer
+/.oxfmtrc.json              @AndreBremer
+/lefthook.yml               @AndreBremer
+/knip.jsonc                 @AndreBremer
+/package.json               @AndreBremer
+/pnpm-workspace.yaml        @AndreBremer
+
+# The public API surface and the error contract. Hosts dispatch on
+# `instanceof ConfigError` and `.code`, so both are compatibility surfaces that
+# a routine change can break silently.
+/src/index.ts               @AndreBremer
+/src/errors.ts              @AndreBremer

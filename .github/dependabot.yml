@@ -1,0 +1,53 @@
+# See dev/REPO-STANDARDS.md STD-SUP-1. Derived from rill's copy; this
+# repository is a single package, so `directories` names the root only.
+version: 2
+
+updates:
+  # Package dependencies. One directory, because there is no packages/ tree.
+  - package-ecosystem: npm
+    directories:
+      - '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - 'area:dx'
+    groups:
+      # One PR per tool family. Ungrouped, the shared toolchain produces a
+      # separate PR per bump, which guarantees the updates get ignored.
+      oxc:
+        patterns:
+          - 'oxlint'
+          - 'oxfmt'
+      typescript:
+        patterns:
+          - 'typescript'
+          - '@types/*'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+      dev-tooling:
+        patterns:
+          - 'knip'
+          - 'lefthook'
+    ignore:
+      # @rcrsr/rill is a peer pinned in lockstep to the matching rill minor, so
+      # its range moves with a deliberate release here, not with a bump PR.
+      # The daily compatibility workflow is what catches a breaking rill
+      # release, and it tests the range this package actually declares.
+      - dependency-name: '@rcrsr/rill'
+
+  # Action versions. Separate ecosystem, so it needs its own entry.
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - 'area:dx'
+    groups:
+      actions:
+        patterns:
+          - '*'

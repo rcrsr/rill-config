@@ -1,0 +1,44 @@
+# Pre-sets the native Issue Type. Decision rule vs Chore: "would a consumer of
+# this library notice it in a release note?" Yes -> Feature.
+# Taxonomy: .github/labeler.yml header.
+name: Feature
+description: 'Net-new capability a consumer can see: a new export, config field, or error class'
+type: Feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: >-
+        What cannot be expressed or done today, and who hits it (a host
+        embedding this library, an extension author, a rill-cli user).
+    validations:
+      required: true
+  - type: textarea
+    id: shape
+    attributes:
+      label: Rough shape
+      description: >-
+        Optional. The surface you have in mind. If it adds public API, say what
+        lands in src/index.ts and the README tables.
+    validations:
+      required: false
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area(s)
+      description: >-
+        Where in the codebase the work lives, becomes the area:* labels at
+        triage (forms cannot apply per-answer labels).
+      multiple: true
+      options:
+        - config
+        - vars
+        - loader
+        - bindings
+        - project
+        - errors
+        - docs
+        - dx
+    validations:
+      required: true

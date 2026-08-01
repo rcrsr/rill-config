@@ -1,0 +1,57 @@
+# Pre-sets the native Issue Type so issues filed from the web UI land correctly
+# typed without scripts (gh CLI can set types since 2.94; forms also can).
+# Taxonomy: .github/labeler.yml header.
+name: Bug report
+description: Config parsing, extension loading, or generated bindings behave wrongly
+type: Bug
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: >-
+        What you observed vs. what you expected, the symptom, not a guess at the
+        cause or the fix. If it is about loading untrusted extension code safely
+        (specifier escape, resolver scope, the prefix boundary), file it as a
+        Security issue instead. Security wins over Bug.
+      placeholder: Include the rill-config.json, the actual result, and the expected result.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: >-
+        A minimal rill-config.json and the loadProject() call that triggers it,
+        the @rcrsr/rill-config and @rcrsr/rill versions, and your Node version.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Supporting context
+      description: >-
+        Optional. The ConfigError subclass and its .code, stack traces, related
+        issues (#N), and pointers to relevant source. Do not propose a fix: the
+        codebase changes and a solution in the ticket ages.
+    validations:
+      required: false
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area(s)
+      description: >-
+        Where in the codebase the work lives, becomes the area:* labels at
+        triage (forms cannot apply per-answer labels).
+      multiple: true
+      options:
+        - config
+        - vars
+        - loader
+        - bindings
+        - project
+        - errors
+        - docs
+        - dx
+    validations:
+      required: true

@@ -47,3 +47,10 @@ Thumbs.db
 .fastembed_cache
 conduct
 internal/
+.serena/
+
+# Scratch directories the ecosystem toolchain writes. Part of the shared
+# baseline (STD-DOC-5) rather than of this package: kept in step with rill's
+# .gitignore so a tool that starts writing one here does not get committed.
+.fresh/
+.rill-tmp/

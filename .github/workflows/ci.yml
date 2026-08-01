@@ -1,34 +1,58 @@
 name: CI
 
+# No path filtering, deliberately. Both filtering mechanisms are incompatible
+# with required status checks: `paths-ignore` prevents the run entirely, so a
+# required context is never reported and the PR blocks forever; a job-level
+# `if:` gate reports "skipped", which never satisfies a required context. See
+# dev/REPO-STANDARDS.md STD-CI-7. This workflow also runs check:standards,
+# which reads Markdown and workflow files, so filtering `**/*.md` would skip
+# exactly the check that validates the changed files.
+#
+# Every `uses:` here pins a commit SHA with the release it belongs to in a
+# trailing comment, per STD-CI-8. A major tag such as `@v5` is mutable: whoever
+# controls the action repository can retarget it, and the next run executes
+# different code with no diff here. The comment is what dependabot reads to
+# offer an upgrade, so it must stay accurate when a SHA changes.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.txt'
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.txt'
 
 permissions:
   contents: read
 
+# Keyed on the ref, so a force-push to a PR branch cancels the superseded run
+# instead of leaving the node matrix racing the new one. `github.workflow` is in
+# the group because a bare ref would collide with the other ref-keyed workflows
+# on this repo. See STD-CI-6.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Never on main: every push to main must leave a completed status behind, and
+  # the branch-protection contexts are reported from this workflow.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
+  # The only job, and the one the required contexts name. `pnpm run check` is
+  # the complete check set: format, lint, types, build, test, deps, standards.
+  # Splitting the root-only checks into a second, non-matrix job meant they ran
+  # on one Node version and never ran locally from `check` at all.
   check:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version: ['22', '24', '25']
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Before setup-node, which needs a package manager on PATH to resolve the
+      # pnpm cache directory. See STD-CI-3.
       - name: Enable Corepack
         run: corepack enable
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
@@ -39,28 +63,17 @@ jobs:
       - name: Run checks
         run: pnpm run check
 
-  deps:
-    name: Unused deps and formatting
+  # A stale copy of dev/ rots quietly, so a build fails on drift. This clones
+  # rather than using a sibling checkout because a runner has no ../rill. Raw
+  # git, not actions/checkout: a shallow public clone needs no action, so
+  # there is no SHA pin to keep current for it (STD-CI-8).
+  dev-assets:
+    name: Dev assets are current
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run typecheck
-        run: pnpm run check:types
-
-      - name: Run knip
-        run: pnpm run check:deps
-
-      - name: Check formatting
-        run: pnpm run check:format
+      - name: Check dev assets are current
+        run: |
+          git clone --depth 1 https://github.com/rcrsr/rill ../rill
+          ../rill/dev/apply.sh --check .

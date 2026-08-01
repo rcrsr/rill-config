@@ -15,19 +15,25 @@ Full project conventions live in `conduct/policies/` and are the source of truth
 Package manager is pnpm (via Corepack); the supported Node range is the `engines` field in `package.json`.
 
 ```bash
+pnpm bootstrap             # verify toolchain, install, build (fresh clone entry point)
 pnpm install               # install deps (also installs lefthook git hooks)
 pnpm build                 # tsc --build, emits to dist/
 pnpm test                  # vitest run (all tests)
 pnpm test tests/loader.test.ts              # single test file
 pnpm test -t "pattern"                      # single test by name
-pnpm typecheck             # tsc --noEmit -p tsconfig.typecheck.json
-pnpm lint                  # oxlint on src/ and tests/
+pnpm check:types           # tsc --noEmit -p tsconfig.typecheck.json
+pnpm check:lint            # oxlint on src/ and tests/
 pnpm fix:lint              # oxlint --fix
 pnpm check:format          # oxfmt --check
 pnpm fix:format            # oxfmt
 pnpm check:deps            # knip (unused deps/exports)
-pnpm check                 # build + test + lint (what CI runs across the Node matrix)
+pnpm check:standards       # dev/check-standards.sh (add --remote for host settings)
+pnpm check                 # the complete check set (what CI runs across the Node matrix)
 ```
+
+This package is a single package, so it uses the root script vocabulary
+throughout: `check:types` and `check:lint`, not bare `typecheck` and `lint`.
+See `dev/REPO-STANDARDS.md` §4.
 
 Vitest arguments pass straight through, with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite instead of the one file, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 

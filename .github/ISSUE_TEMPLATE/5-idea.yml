@@ -1,0 +1,35 @@
+# Pre-sets the native Issue Type. Idea = captured but not yet shaped into
+# implementable work. Promotion = change the Type to what it turned out to be.
+# Taxonomy: .github/labeler.yml header.
+name: Idea
+description: 'Captured but not yet shaped, becomes Bug/Feature/Chore/Security on promotion'
+type: Idea
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: >-
+        The problem or outcome you are chasing, rough is fine. Shaping happens
+        at promotion. No need for a solution.
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area(s)
+      description: >-
+        Where in the codebase the work lives, becomes the area:* labels at
+        triage (forms cannot apply per-answer labels).
+      multiple: true
+      options:
+        - config
+        - vars
+        - loader
+        - bindings
+        - project
+        - errors
+        - docs
+        - dx
+    validations:
+      required: true

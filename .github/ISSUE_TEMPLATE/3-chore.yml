@@ -1,0 +1,37 @@
+# Pre-sets the native Issue Type. Decision rule vs Feature: "would a consumer
+# notice it in a release note?" No -> Chore. Covers debt, refactors, test
+# suites, perf, and internals with no visible surface change. An issue ABOUT
+# loading untrusted extension code safely is Security, not Chore.
+# Taxonomy: .github/labeler.yml header.
+name: Chore
+description: 'Robustness work on existing machinery: debt, refactors, tests, performance, internals'
+type: Chore
+body:
+  - type: textarea
+    id: machinery
+    attributes:
+      label: What machinery, and what is wrong with it
+      description: >-
+        Name the modules. What a maintainer pays for it today, and what changes
+        for them once it lands.
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area(s)
+      description: >-
+        Where in the codebase the work lives, becomes the area:* labels at
+        triage (forms cannot apply per-answer labels).
+      multiple: true
+      options:
+        - config
+        - vars
+        - loader
+        - bindings
+        - project
+        - errors
+        - docs
+        - dx
+    validations:
+      required: true

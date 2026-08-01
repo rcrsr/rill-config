@@ -1,0 +1,44 @@
+# Pre-sets the native Issue Type. Security WINS over Bug/Feature/Chore when the
+# issue is fundamentally about loading untrusted extension code safely:
+# specifier escape past the resolution prefix, resolver access scope, the host
+# API surface, and cleanup of handles on a failed load. This package resolves
+# and dynamically imports code named by a config file, so this is a first-class
+# concern. Taxonomy: .github/labeler.yml header.
+name: Security
+description: Specifier resolution scope, extension load boundaries, host API surface, resource cleanup
+type: Security
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **Do not file an exploitable vulnerability here.** Report it privately
+        via the channel in [SECURITY.md](../blob/main/SECURITY.md). This form is
+        for hardening work that is safe to discuss in public.
+  - type: textarea
+    id: surface
+    attributes:
+      label: The surface, and what it currently permits
+      description: >-
+        Which boundary, and what a hostile or merely wrong rill-config.json can
+        reach through it today.
+    validations:
+      required: true
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Area(s)
+      description: >-
+        Where in the codebase the work lives, becomes the area:* labels at
+        triage (forms cannot apply per-answer labels).
+      multiple: true
+      options:
+        - config
+        - vars
+        - loader
+        - bindings
+        - project
+        - errors
+        - docs
+        - dx
+    validations:
+      required: true

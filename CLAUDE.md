@@ -37,7 +37,7 @@ See `dev/REPO-STANDARDS.md` §4.
 
 Vitest arguments pass straight through, with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite instead of the one file, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 
-Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs lint+format on pre-commit and typecheck+test on pre-push (`LEFTHOOK=0` or `--no-verify` skips).
+Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs format then lint on pre-commit, in that order because the reverse lets the formatter undo a lint fix, and typecheck+test on pre-push (`LEFTHOOK=0` or `--no-verify` skips).
 
 Always go through the package scripts. `npx <tool>` and `pnpm exec <tool>` bypass the toolchain versions pinned in `devDependencies`. This is a standalone package, not a workspace, so `--filter` and `-r` do not apply. See `conduct/policies/policy-domain-node.md` §NOD.7.
 
@@ -66,3 +66,63 @@ Extension loading (`src/loader.ts`) is the largest module: it resolves specifier
 - Source files use `// ===` banner comments to group sections; new exports go under the matching banner in `src/index.ts` (§NOD.2.2).
 - Tests live in `tests/` (one file per `src/` module) with fixtures under `tests/fixtures/`; knip ignores fixtures. Each test file opens with a `Covers: HP-*, EC-* (AC-*)` spec header (§NOD.5.2), and imports the public package rather than `../src/*.js` unless the symbol is `@internal` (§NOD.5.1).
 - Naming and style rules (function prefixes, `as const` over `enum`, named exports only, `unknown` over `any`) are in `conduct/policies/policy-artifact-typescript.md` §TS.1 and §TS.8.
+
+## Repository standards
+
+This repository conforms to the ecosystem baseline in
+[`dev/REPO-STANDARDS.md`](dev/REPO-STANDARDS.md), whose canonical copy is
+[rcrsr/rill](https://github.com/rcrsr/rill/blob/main/dev/REPO-STANDARDS.md).
+
+```bash
+pnpm check:standards               # elements readable from the tree
+bash dev/check-standards.sh --remote   # adds §1 merge gates and §13 repo settings
+```
+
+Read the summary line, not the exit code. `--` means an element was **not**
+checked; it still applies. A green run covers only the checked subset.
+
+**`dev/` is a copy, not source.** `rill/dev/apply.sh` places it and CI fails on
+drift. A fix to the standard or the checker goes to `rcrsr/rill` and comes back
+through `apply.sh`; a local edit is lost on the next run.
+
+### Recorded N/A
+
+Each entry names the element ID and the stated condition from
+`dev/REPO-STANDARDS.md` that it meets. An N/A claimed without a matching stated
+condition is a defect, not a decision.
+
+| ID | Stated condition it meets |
+|---|---|
+| STD-CHK-7 | "The repository publishes exactly one package and has no root-versus-package version split to reconcile." One package, published from the root manifest. There is no root-vs-package pair to reconcile, so there is no version gate for CI to run. Tag-vs-manifest consistency is a different assertion and is enforced by STD-REL-2 in `release.yml`. |
+| STD-SCRIPT-3 | "The same condition as STD-CHK-7." No `check:versions` / `fix:versions`, for the reason above. |
+| STD-SCRIPT-7 | "The repository is a single package." There are no workspace packages to carry the atomic vocabulary. The single package is the root and takes the root vocabulary from STD-SCRIPT-1 (`check:types`, `check:lint`), not the bare package names. |
+| STD-PM-7 | "The repository is a single package with no workspace file." `pnpm-workspace.yaml` exists but declares no `packages:` key: it carries pnpm settings only, which pnpm reads either way. There are no workspace globs to match. |
+| STD-DEP-4 | "The repository is a single package." Vitest is declared once, in the only manifest, so there is no per-package consistency to keep. |
+
+Two elements are always-applicable and satisfied rather than N/A, recorded here
+because their evidence is not in the tree:
+
+- **STD-PM-6.** Verified against the pinned major, pnpm 11.18.0: it no longer
+  reads `pnpm.onlyBuiltDependencies` from `package.json` and warns "Ignored
+  build scripts" when the allowlist is absent. The allowlist is `allowBuilds` in
+  `pnpm-workspace.yaml`, which is where 11 expects it.
+- **STD-SUP-4.** `minimumReleaseAgeExclude` names `@rcrsr/rill` by name, not by
+  exact version, so it survives the next release with no hand edit.
+
+### Host settings, which no checkout can enforce
+
+Merge gates (§1) and repository settings (§13) live on GitHub, so nothing in a
+diff reveals a change to them. Re-check with:
+
+```bash
+gh api repos/rcrsr/rill-config/branches/main/protection \
+  --jq '.required_status_checks | {strict, contexts}'
+gh api repos/rcrsr/rill-config \
+  --jq '{squash: .allow_squash_merge, merge: .allow_merge_commit,
+         rebase: .allow_rebase_merge, wiki: .has_wiki,
+         delete_branch: .delete_branch_on_merge}'
+```
+
+The intent: `main` protected with admins included and force pushes off; linear
+history on; squash the only enabled merge path; `delete_branch_on_merge` on;
+every leg of the CI `check` matrix a required context, with `strict` on.

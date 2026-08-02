@@ -7,7 +7,7 @@ pre-commit:
   piped: true
   commands:
     # Format first, then lint. The reverse order lets the formatter undo a lint
-    # fix, so the commit carries the unfixed form. See dev/REPO-STANDARDS.md
+    # fix, so the commit carries the unfixed form. See REPO-STANDARDS.md
     # STD-HOOK-2.
     oxfmt:
       priority: 1

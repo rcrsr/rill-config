@@ -2,7 +2,7 @@
 # Creates or updates the rill-config label taxonomy (the label axes only).
 # Types (Bug/Feature/Chore/Security/Idea) and Priority are native org-level
 # GitHub fields, not labels, and are configured in org settings, not here.
-# See dev/REPO-STANDARDS.md STD-PROC-7.
+# See REPO-STANDARDS.md STD-PROC-7.
 #
 # One signal per axis; label text is the load-bearing distinction (WCAG 1.4.1).
 # area:* uniform blue; on-hold gray (parked); needs-triage yellow (pending).
@@ -31,7 +31,7 @@ declare -a AREAS=(
   "area:project|loadProject() orchestration, step ordering, the public barrel"
   "area:errors|the ConfigError hierarchy and its codes"
   "area:docs|README, CHANGELOG, and repository documentation"
-  "area:dx|CI, toolchain, dev/ assets, test harness, root config"
+  "area:dx|CI, toolchain, scripts, test harness, root config"
 )
 
 for entry in "${AREAS[@]}"; do

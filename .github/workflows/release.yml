@@ -11,7 +11,7 @@ permissions:
 
 # Serialized on a fixed group and never cancelled. Cancelling a publish leaves
 # the registry holding a partial release, which the pre-publish existence check
-# then reads as already-done on the retry. See dev/REPO-STANDARDS.md STD-CI-6.
+# then reads as already-done on the retry. See REPO-STANDARDS.md STD-CI-6.
 concurrency:
   group: release-${{ github.workflow }}
   cancel-in-progress: false
@@ -34,8 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Enable Corepack and install pnpm
-        run: corepack enable && corepack prepare --activate
+      - name: Enable Corepack
+        run: corepack enable
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -75,7 +75,7 @@ jobs:
           # Without pipefail the `pnpm publish | tee` below reports tee's exit
           # status, so a failed publish would read as success and the job would
           # go on to cut a GitHub Release for a package that never shipped.
-          # See dev/REPO-STANDARDS.md STD-REL-6.
+          # See REPO-STANDARDS.md STD-REL-6.
           set -o pipefail
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")

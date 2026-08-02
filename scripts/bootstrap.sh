@@ -5,10 +5,14 @@
 #
 #   pnpm bootstrap
 #
-# Wire it up with `"bootstrap": "bash dev/bootstrap.sh"` in the root
+# Wire it up with `"bootstrap": "bash scripts/bootstrap.sh"` in the root
 # package.json. The command is the same in every repository in the ecosystem,
 # which is the whole point: a contributor never has to ask which repository
-# needs what. See dev/REPO-STANDARDS.md STD-SCRIPT-5.
+# needs what. See REPO-STANDARDS.md STD-SCRIPT-5.
+#
+# This stays a per-repository file rather than shipping in @rcrsr/rill-dev,
+# which carries the rest of the shared dev assets: it performs the install that
+# would fetch that package, so it cannot live inside its own prerequisite.
 #
 # This deliberately does NOT install git hooks. `prepare` already does that on
 # every install, so duplicating it here would give two places to keep in sync.
@@ -18,7 +22,7 @@
 # Idempotent: safe to run on a clean tree, a stale tree, or twice in a row.
 #
 # Repository-agnostic. Everything it enforces is read from the root
-# package.json, so the copy in each repository is byte-identical.
+# package.json, so the file is the same in every repository.
 #
 # Exit codes: 0 ready, 1 precondition unmet.
 

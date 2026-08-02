@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Shared dev assets move to the `@rcrsr/rill-dev` package:** The conformance checker, custom linting rules, and `REPO-STANDARDS.md` migrate from a byte-copied `dev/` directory to a versioned `@rcrsr/rill-dev` devDependency, upgrading by package version instead of by drift-checked copy. The compatibility workflow expands to run conformance and linting checks against rill-dev releases, since a break there surfaces in those rather than in the build or the test suite. The `rill/no-duplicate-error-id` lint rule is enabled for `src/**/*.ts`; it matches nothing today, because this package constructs only `ConfigError` subclasses, and is on so that stops being true loudly rather than silently. The `dev/` directory, drift-check CI job, and byte-identical copy discipline are removed; `dev/bootstrap.sh` moves to `scripts/bootstrap.sh`. No change to published behavior; `files` ships `dist` only. ([#19](https://github.com/rcrsr/rill-config/pull/19))
+
 ## [0.20.0] - 2026-07-30
 
 ### Breaking Changes

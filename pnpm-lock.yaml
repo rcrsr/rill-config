@@ -15,6 +15,9 @@ importers:
       '@rcrsr/rill':
         specifier: ~0.20.0
         version: 0.20.0
+      '@rcrsr/rill-dev':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@types/node':
         specifier: ^26.1.2
         version: 26.1.2
@@ -539,6 +542,11 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     cpu: [x64]
     os: [win32]
+
+  '@rcrsr/rill-dev@0.1.0':
+    resolution: {integrity: sha512-xk+OaxyF0iKFb1BC574/LKXuViQJWXDIri6ZrCJd8Kb92ESZkNSTF+hjmUoeSaKQUWjwDRNQDzwclhFaFPJ0oA==}
+    engines: {node: '>=22.16.0'}
+    hasBin: true
 
   '@rcrsr/rill@0.20.0':
     resolution: {integrity: sha512-/OnCLODUNnATQNOjqgBIxNuTqzTL75P7Db2mLkZgptFGqsi5GMwBaZ0kB3lpJaVdIO6KRjnay253QgWJ/1LXHA==}
@@ -1503,6 +1511,8 @@ snapshots:
 
   '@oxlint/binding-win32-x64-msvc@1.76.0':
     optional: true
+
+  '@rcrsr/rill-dev@0.1.0': {}
 
   '@rcrsr/rill@0.20.0': {}
 

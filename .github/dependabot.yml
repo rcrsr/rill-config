@@ -1,4 +1,4 @@
-# See dev/REPO-STANDARDS.md STD-SUP-1. Derived from rill's copy; this
+# See REPO-STANDARDS.md STD-SUP-1. Derived from rill's copy; this
 # repository is a single package, so `directories` names the root only.
 version: 2
 

@@ -27,13 +27,14 @@ pnpm fix:lint              # oxlint --fix
 pnpm check:format          # oxfmt --check
 pnpm fix:format            # oxfmt
 pnpm check:deps            # knip (unused deps/exports)
-pnpm check:standards       # dev/check-standards.sh (add --remote for host settings)
+pnpm check:standards       # rill-check-standards (add --remote for host settings)
+pnpm test:rules            # rill-test-rules (the lint rules' own unit tests)
 pnpm check                 # the complete check set (what CI runs across the Node matrix)
 ```
 
 This package is a single package, so it uses the root script vocabulary
 throughout: `check:types` and `check:lint`, not bare `typecheck` and `lint`.
-See `dev/REPO-STANDARDS.md` §4.
+See `REPO-STANDARDS.md` §4.
 
 Vitest arguments pass straight through, with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite instead of the one file, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 
@@ -69,26 +70,62 @@ Extension loading (`src/loader.ts`) is the largest module: it resolves specifier
 
 ## Repository standards
 
-This repository conforms to the ecosystem baseline in
-[`dev/REPO-STANDARDS.md`](dev/REPO-STANDARDS.md), whose canonical copy is
-[rcrsr/rill](https://github.com/rcrsr/rill/blob/main/dev/REPO-STANDARDS.md).
+This repository conforms to the ecosystem baseline in `REPO-STANDARDS.md`,
+which arrives through the `@rcrsr/rill-dev` devDependency rather than as a file
+in this tree. Read the installed copy at
+`node_modules/@rcrsr/rill-dev/REPO-STANDARDS.md`, or upstream at
+[rcrsr/rill](https://github.com/rcrsr/rill/blob/main/packages/dev/REPO-STANDARDS.md).
 
 ```bash
-pnpm check:standards               # elements readable from the tree
-bash dev/check-standards.sh --remote   # adds §1 merge gates and §13 repo settings
+pnpm check:standards                        # elements readable from the tree
+pnpm exec rill-check-standards --remote     # adds §1 merge gates and §13 repo settings
 ```
 
 Read the summary line, not the exit code. `--` means an element was **not**
 checked; it still applies. A green run covers only the checked subset.
 
-**`dev/` is a copy, not source.** `rill/dev/apply.sh` places it and CI fails on
-drift. A fix to the standard or the checker goes to `rcrsr/rill` and comes back
-through `apply.sh`; a local edit is lost on the next run.
+### CI checks the tree; `--remote` is a maintainer task
+
+CI runs `check:standards` as the last leg of `pnpm run check`, without
+`--remote`. **Do not add it back.** Two independent reasons:
+
+- **A pull request cannot change host state.** Branch protection and repository
+  settings are altered out of band by an admin. Gating merges on them means one
+  settings change turns every open PR red for a reason no author can fix, which
+  teaches everyone to ignore the job.
+- **CI credentials cannot read them anyway.** `GITHUB_TOKEN` gets a repository
+  object with the administrative fields omitted and a 404 from
+  `branches/*/protection`, so both element groups report as unchecked. The CI
+  element count is identical with and without the flag; the step implied
+  coverage it did not have. Making it decide anything means a long-lived
+  admin-scoped PAT or a GitHub App sitting in the PR path, to check settings a
+  PR cannot alter.
+
+Run `pnpm exec rill-check-standards --remote` yourself, from a `gh`-authenticated
+shell, when repository settings change. It decides strictly more elements than
+any CI run can.
+
+**The shared dev assets are a dependency, not a copy.** `@rcrsr/rill-dev` ships
+the checker (`rill-check-standards`), the lint rules
+(`@rcrsr/rill-dev/lint-rules`, plus `rill-test-rules` for their own suite), and
+`REPO-STANDARDS.md`. A fix to any of them goes to `rcrsr/rill` under
+`packages/dev` and arrives here as a version bump. Do not vendor
+`REPO-STANDARDS.md` back into the tree; there is nothing to keep in sync and a
+copy would only go stale.
+
+`rill-check-standards` resolves the repository under test with
+`git rev-parse --show-toplevel`, never from its own location, which is what
+makes it correct from inside `node_modules/`. If it looks like it is reading
+the wrong tree, the working directory is the cause, not the script. It exits 2
+rather than reporting on a directory with no manifest.
+
+`scripts/bootstrap.sh` stays a local file: it performs the install that fetches
+`@rcrsr/rill-dev`, so it cannot ship inside its own prerequisite.
 
 ### Recorded N/A
 
 Each entry names the element ID and the stated condition from
-`dev/REPO-STANDARDS.md` that it meets. An N/A claimed without a matching stated
+`REPO-STANDARDS.md` that it meets. An N/A claimed without a matching stated
 condition is a defect, not a decision.
 
 | ID | Stated condition it meets |
@@ -106,8 +143,35 @@ because their evidence is not in the tree:
   reads `pnpm.onlyBuiltDependencies` from `package.json` and warns "Ignored
   build scripts" when the allowlist is absent. The allowlist is `allowBuilds` in
   `pnpm-workspace.yaml`, which is where 11 expects it.
-- **STD-SUP-4.** `minimumReleaseAgeExclude` names `@rcrsr/rill` by name, not by
-  exact version, so it survives the next release with no hand edit.
+- **STD-SUP-4.** `minimumReleaseAgeExclude` names `@rcrsr/rill` and
+  `@rcrsr/rill-dev` by name, not by exact version, so both survive the next
+  release with no hand edit. Both are first-party; the rationale for each is in
+  `pnpm-workspace.yaml`.
+
+### Which `rill/*` lint rules are on
+
+Loading `@rcrsr/rill-dev/lint-rules` through `jsPlugins` registers the rules
+without enabling any of them, so each is a deliberate opt-in in
+`.oxlintrc.json`. Both are on, scoped to `src/**/*.ts`.
+
+- **`rill/no-spec-id-reference`.** `src/` is what anyone reading the published
+  package sees, and `conduct/` identifiers are unresolvable there. Tests are
+  excluded on purpose: their `Covers:` headers are spec IDs by design.
+- **`rill/no-duplicate-error-id`.** This one matches nothing today: it binds to
+  the bare identifier `RuntimeError` and to `RuntimeError.fromNode`, and this
+  package constructs only `ConfigError` subclasses. It is on anyway. A no-op
+  rule costs nothing, whereas switching it off fails silently — the day a module
+  imports rill's `RuntimeError`, nobody will remember the rule existed.
+
+Verify the plugin resolves through `node_modules` rather than a path:
+
+```bash
+node -e "import('@rcrsr/rill-dev/lint-rules').then(m => console.log(Object.keys(m.default.rules)))"
+# [ 'no-duplicate-error-id', 'no-spec-id-reference' ]
+```
+
+Note `m.default.rules`, not `m.rules`: the plugin is a default export
+(`export default { meta, rules }`), so the module namespace carries `default`.
 
 ### Host settings, which no checkout can enforce
 

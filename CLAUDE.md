@@ -136,13 +136,16 @@ condition is a defect, not a decision.
 | STD-PM-7 | **Satisfied vacuously, not N/A by the stated condition.** That condition reads "single package with no workspace file", and this repository *does* have a `pnpm-workspace.yaml`: it declares no `packages:` key and carries pnpm settings only, which pnpm reads either way. So the file exists, there are zero globs, and "every workspace glob matches" holds with nothing to check. The checker reports it as `--`. Do not read this row as meeting the written condition; a settings-only workspace file is a shape that condition does not describe. |
 | STD-DEP-4 | "The repository is a single package." Vitest is declared once, in the only manifest, so there is no per-package consistency to keep. |
 
-Two elements are always-applicable and satisfied rather than N/A, recorded here
-because their evidence is not in the tree:
+Two elements are always-applicable and satisfied rather than N/A. Both are
+machine-checked and report `ok`; the notes stay because they carry the reasoning
+for the shape the checker accepts, which a passing line does not:
 
 - **STD-PM-6.** Verified against the pinned major, pnpm 11.18.0: it no longer
   reads `pnpm.onlyBuiltDependencies` from `package.json` and warns "Ignored
   build scripts" when the allowlist is absent. The allowlist is `allowBuilds` in
-  `pnpm-workspace.yaml`, which is where 11 expects it.
+  `pnpm-workspace.yaml`, which is where 11 expects it. As of rill-dev 0.2.0 the
+  checker decides this from the tree, reading the pinned pnpm major to know
+  which of the two locations is load-bearing; before then it reported `--`.
 - **STD-SUP-4.** `minimumReleaseAgeExclude` names `@rcrsr/rill` and
   `@rcrsr/rill-dev` by name, not by exact version, so both survive the next
   release with no hand edit. Both are first-party; the rationale for each is in

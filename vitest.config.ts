@@ -9,5 +9,8 @@ export default defineConfig({
   },
   test: {
     globals: false,
+    // Tests live only in tests/ (one file per src/ module). Scope discovery
+    // there so a local `conduct` symlink to the plugin tree is never traversed.
+    include: ['tests/**/*.test.ts'],
   },
 });

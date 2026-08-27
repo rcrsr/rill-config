@@ -33,8 +33,10 @@ export function buildResolvers(options: {
 }): ResolverConfig {
   const { extTree, contextValues, modulesConfig, configDir } = options;
 
-  // Build the module: resolver config, resolving all folder paths relative to configDir
-  const moduleDirs: Record<string, string> = {};
+  // Build the module: resolver config, resolving all folder paths relative to configDir.
+  // Null-prototype avoids collisions with Object.prototype names (constructor,
+  // toString, valueOf, hasOwnProperty, ...) shadowing a real lookup miss.
+  const moduleDirs: Record<string, string> = Object.create(null);
   for (const [id, value] of Object.entries(modulesConfig)) {
     moduleDirs[id] = resolve(configDir, value);
   }

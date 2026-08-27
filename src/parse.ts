@@ -1,6 +1,11 @@
 import type { RillConfigFile } from './types.js';
 import { ConfigParseError, ConfigValidationError } from './errors.js';
 
+// Deliberately duplicated from mounts.ts rather than imported: the leaf
+// import boundary (§NOD.2.1) forbids parse.ts -> mounts.ts.
+const SCHEMA_KEY_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /**
  * Describe a value's shape for error messages. `typeof null === 'object'`
  * and `Array.isArray(null) === false`, so plain `typeof`/`Array.isArray`
@@ -122,6 +127,16 @@ export function parseConfig(raw: string): RillConfigFile {
     assertRequiredObject('context.schema', contextObj['schema']);
     const schema = contextObj['schema'] as Record<string, unknown>;
     for (const key of Object.keys(schema)) {
+      if (RESERVED_KEYS.has(key)) {
+        throw new ConfigValidationError(
+          `Field context.schema.${key}: reserved key name`
+        );
+      }
+      if (!SCHEMA_KEY_PATTERN.test(key)) {
+        throw new ConfigValidationError(
+          `Field context.schema.${key}: invalid key (must match ${SCHEMA_KEY_PATTERN})`
+        );
+      }
       assertSchemaEntry(`context.schema.${key}`, schema[key]);
     }
     assertRequiredObject('context.values', contextObj['values']);

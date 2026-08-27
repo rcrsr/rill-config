@@ -34,7 +34,7 @@ export function validateContext(
   const result: Record<string, unknown> = {};
 
   for (const key of Object.keys(context.schema)) {
-    if (!(key in context.values)) {
+    if (!Object.hasOwn(context.values, key)) {
       throw new ContextValidationError(`Missing context value for key: ${key}`);
     }
 

@@ -1,6 +1,6 @@
 /**
  * Tests for parseConfig and parseMainField
- * Covers: AC-13, AC-21, AC-22, EC-4, EC-5
+ * Covers: AC-13, AC-21, AC-22, EC-4, EC-5, #38
  */
 
 import {
@@ -234,6 +234,105 @@ describe('parseConfig', () => {
       expect(() => parseConfig(raw)).toThrow(
         'Field host.setupTimeout: expected number, got string'
       );
+    });
+
+    it('throws ConfigValidationError when a schema key contains a colon and space', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { 'a: 1, b': { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('throws ConfigValidationError when a schema key contains a bracket', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { 'x]': { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('throws ConfigValidationError when a schema key contains a space', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { 'has space': { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('throws ConfigValidationError when a schema key is "__proto__"', () => {
+      // `{ __proto__: ... }` as an object literal sets the prototype rather
+      // than creating an own key, so this uses a raw JSON string instead of
+      // JSON.stringify to get a genuine own "__proto__" property.
+      const raw =
+        '{"context":{"schema":{"__proto__":{"type":"string"}},"values":{}}}';
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('throws ConfigValidationError when a schema key is "constructor"', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { constructor: { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('throws ConfigValidationError when a schema key is "prototype"', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: { prototype: { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(raw)).toThrow(ConfigValidationError);
+    });
+
+    it('uses a distinct message for reserved keys vs invalid-pattern keys', () => {
+      const reservedRaw = JSON.stringify({
+        context: {
+          schema: { constructor: { type: 'string' } },
+          values: {},
+        },
+      });
+      const invalidRaw = JSON.stringify({
+        context: {
+          schema: { 'has space': { type: 'string' } },
+          values: {},
+        },
+      });
+
+      expect(() => parseConfig(reservedRaw)).toThrow('reserved key name');
+      expect(() => parseConfig(invalidRaw)).toThrow('invalid key (must match');
+    });
+
+    it('parses schema keys "foo", "my_key", "a-b", and "k9" without throwing', () => {
+      const raw = JSON.stringify({
+        context: {
+          schema: {
+            foo: { type: 'string' },
+            my_key: { type: 'string' },
+            'a-b': { type: 'string' },
+            k9: { type: 'string' },
+          },
+          values: { foo: 'x', my_key: 'y', 'a-b': 'z', k9: 'w' },
+        },
+      });
+
+      expect(() => parseConfig(raw)).not.toThrow();
     });
 
     it('parses a fully-valid config with all blocks unchanged', () => {

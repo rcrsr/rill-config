@@ -1,10 +1,10 @@
 /**
  * Tests for resolveConfigPath
- * Covers: HP-2, HP-3, EC-1 (AC-2, AC-3)
+ * Covers: HP-2, HP-3, EC-1 (AC-2, AC-3), #33
  */
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { ConfigNotFoundError, resolveConfigPath } from '@rcrsr/rill-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -176,6 +176,47 @@ describe('resolveConfigPath', () => {
       expect(() => resolveConfigPath({ cwd: tmpDir })).toThrow(
         `No rill-config.json found from ${tmpDir} to root`
       );
+    });
+  });
+
+  describe('#33: configFlag resolved against cwd', () => {
+    it('honours cwd when configFlag is a relative path', () => {
+      const cwd = resolve(process.cwd(), 'tests/fixtures/resolve-cwd');
+
+      const result = resolveConfigPath({
+        configFlag: 'rill-config.json',
+        cwd,
+      });
+
+      expect(result).toBe(join(cwd, 'rill-config.json'));
+    });
+
+    it('rejects a directory path with ConfigNotFoundError, not EISDIR', () => {
+      const cwd = resolve(process.cwd(), 'tests/fixtures');
+
+      expect(() =>
+        resolveConfigPath({
+          configFlag: 'resolve-directory-not-a-file',
+          cwd,
+        })
+      ).toThrow(ConfigNotFoundError);
+    });
+
+    it('rejects an empty string configFlag with ConfigNotFoundError', () => {
+      const cwd = resolve(process.cwd(), 'tests/fixtures/resolve-cwd');
+
+      expect(() => resolveConfigPath({ configFlag: '', cwd })).toThrow(
+        ConfigNotFoundError
+      );
+    });
+
+    it('control: returns an absolute path to a real file unchanged', () => {
+      const cwd = resolve(process.cwd(), 'tests/fixtures/resolve-cwd');
+      const configPath = join(cwd, 'rill-config.json');
+
+      const result = resolveConfigPath({ configFlag: configPath, cwd });
+
+      expect(result).toBe(configPath);
     });
   });
 });

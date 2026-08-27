@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { ConfigNotFoundError } from './errors.js';
 
@@ -9,8 +9,9 @@ export function resolveConfigPath(options: {
   cwd: string;
 }): string {
   if (options.configFlag !== undefined) {
-    const absolute = resolve(options.configFlag);
-    if (!existsSync(absolute)) {
+    const absolute = resolve(options.cwd, options.configFlag);
+    const stat = statSync(absolute, { throwIfNoEntry: false });
+    if (stat === undefined || !stat.isFile()) {
       throw new ConfigNotFoundError(`Config not found: ${absolute}`);
     }
     return absolute;

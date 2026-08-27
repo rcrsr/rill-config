@@ -107,13 +107,18 @@ function substituteValue(
   if (typeof value === 'object' && value !== null) {
     const result: Record<string, unknown> = {};
     for (const key of Object.keys(value)) {
-      result[key] = substituteValue(
-        (value as Record<string, unknown>)[key],
-        vars,
-        missing,
-        replaceEnv,
-        replaceSession
-      );
+      Object.defineProperty(result, key, {
+        value: substituteValue(
+          (value as Record<string, unknown>)[key],
+          vars,
+          missing,
+          replaceEnv,
+          replaceSession
+        ),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
     return result;
   }

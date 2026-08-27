@@ -3,6 +3,7 @@
  * Covers: HP-7, HP-8, HP-9, HP-10, EC-5, EC-6, EC-7, EC-10, EC-11, EC-12,
  *   EC-13, EC-14, EC-15, EC-16, EC-17, EC-18, BC-1
  * (AC-7, AC-8, AC-13, AC-14, AC-16, AC-20, AC-21, AC-23)
+ * GH bugs: #30, #31, #35, #36, #37, #39
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -10,6 +11,7 @@ import { resolve } from 'node:path';
 import {
   loadExtensions,
   loadProject,
+  runDisposes,
   ExtensionLoadError,
   ExtensionVersionError,
   NamespaceCollisionError,
@@ -36,6 +38,12 @@ const preabortCaptured = vi.hoisted(() => ({
 const partialCaptured = vi.hoisted(() => ({
   ctx: undefined as { signal: AbortSignal } | undefined,
   disposeCalls: 0,
+}));
+
+// #37: captures the config block a dot-path mount's factory actually
+// receives.
+const dotpathConfigCaptured = vi.hoisted(() => ({
+  cfg: undefined as Record<string, unknown> | undefined,
 }));
 
 // ============================================================
@@ -214,6 +222,79 @@ vi.mock('/fake/ext/partial-bad', () => ({
   extensionManifest: {
     factory: () => {
       throw new Error('boom');
+    },
+  },
+}));
+
+// #30: mount "a" registers a code synchronously; mount "b" defers a
+// conflicting registration into its dispose callback, so the conflict
+// surfaces only when a caller invokes that dispose function directly.
+vi.mock('/fake/ext/deferred-code-a', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: { registerErrorCode: (n: string, k: string) => void }
+    ) => {
+      ctx.registerErrorCode('DEFERRED', 'http');
+      return { value: 'a' };
+    },
+  },
+}));
+vi.mock('/fake/ext/deferred-code-b', () => ({
+  extensionManifest: {
+    factory: (
+      _cfg: Record<string, unknown>,
+      ctx: { registerErrorCode: (n: string, k: string) => void }
+    ) => ({
+      value: 'b',
+      dispose: () => {
+        ctx.registerErrorCode('DEFERRED', 'protocol');
+      },
+    }),
+  },
+}));
+
+// #31: factories returning a non-object result.
+vi.mock('/fake/ext/factory-returns-null', () => ({
+  extensionManifest: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    factory: (): any => null,
+  },
+}));
+vi.mock('/fake/ext/factory-returns-undefined', () => ({
+  extensionManifest: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    factory: (): any => undefined,
+  },
+}));
+vi.mock('/fake/ext/factory-returns-number', () => ({
+  extensionManifest: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    factory: (): any => 42,
+  },
+}));
+vi.mock('/fake/ext/factory-returns-string', () => ({
+  extensionManifest: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    factory: (): any => 'x',
+  },
+}));
+
+// #36: factory returns a plain object value (not a scalar), so mounting
+// a nested path underneath it must be treated as a collision with an
+// extension-returned object rather than an intermediate the loader owns.
+vi.mock('/fake/ext/mount-obj', () => ({
+  extensionManifest: {
+    factory: () => ({ value: { k: 'obj' } }),
+  },
+}));
+
+// #37: captures the config block passed to a dot-path mount's factory.
+vi.mock('/fake/ext/dotpath-config-capture', () => ({
+  extensionManifest: {
+    factory: (cfg: Record<string, unknown>) => {
+      dotpathConfigCaptured.cfg = cfg;
+      return { value: 'ok' };
     },
   },
 }));
@@ -931,6 +1012,156 @@ describe('loadExtensions', () => {
       expect((result.extTree['a'] as Record<string, unknown>)['b']).toBe(
         'nested'
       );
+    });
+  });
+
+  // ============================================================
+  // #30: registerErrorCode conflict raised from a deferred callback
+  // ============================================================
+
+  describe('#30: registerErrorCode conflict from a deferred/dispose callback', () => {
+    it('rejects with ExtensionLoadError, not a plain Error', async () => {
+      const mounts = [
+        makeMount('a', '/fake/ext/deferred-code-a'),
+        makeMount('b', '/fake/ext/deferred-code-b'),
+      ];
+      const result = await loadExtensions(mounts, {});
+      const deferredDispose = result.disposes[result.disposes.length - 1]!;
+      await expect(
+        Promise.resolve().then(() => deferredDispose())
+      ).rejects.toThrow(ExtensionLoadError);
+    });
+  });
+
+  // ============================================================
+  // #31: factory returning a non-object result
+  // ============================================================
+
+  describe('#31: factory returns a non-object result', () => {
+    it.each([
+      ['null', '/fake/ext/factory-returns-null'],
+      ['undefined', '/fake/ext/factory-returns-undefined'],
+      ['a number', '/fake/ext/factory-returns-number'],
+      ['a string', '/fake/ext/factory-returns-string'],
+    ])(
+      'rejects with ExtensionLoadError when the factory returns %s',
+      async (_label, specifier) => {
+        const mounts = [makeMount('bad', specifier)];
+        await expect(loadExtensions(mounts, {})).rejects.toThrow(
+          ExtensionLoadError
+        );
+        await expect(loadExtensions(mounts, {})).rejects.toThrow(
+          /returned a non-object/
+        );
+      }
+    );
+  });
+
+  // ============================================================
+  // #35: isEntrypointMiss honors `prefix` for relative specifiers
+  // ============================================================
+
+  describe('#35: prefix-aware entrypoint-miss classification', () => {
+    it('classifies a missing relative entrypoint under a non-cwd prefix as "Cannot find packages"', async () => {
+      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const mounts = [
+        makeMount('missing', './__does-not-exist-relative-entry__.js'),
+      ];
+      try {
+        await loadExtensions(mounts, {}, { prefix });
+        throw new Error('expected loadExtensions to reject');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        const msg = (err as Error).message;
+        expect(msg).toContain('Cannot find packages:');
+        expect(msg).toContain('__does-not-exist-relative-entry__.js');
+        expect(msg).not.toContain('cannot find transitive dependency');
+      }
+    });
+  });
+
+  // ============================================================
+  // #36: mounting into an extension-returned object is a collision,
+  // not a reference mutation; loader-created intermediates still merge.
+  // ============================================================
+
+  describe('#36: mount collision against an extension-returned object', () => {
+    it('rejects with "Mount collision" when the leaf mount is registered first', async () => {
+      const mounts = [
+        makeMount('coll1', '/fake/ext/mount-obj'),
+        makeMount('coll1.sub', '/fake/ext/mount-obj'),
+      ];
+      await expect(loadExtensions(mounts, {})).rejects.toThrow(
+        /Mount collision/
+      );
+    });
+
+    it('rejects with "Mount collision" when the nested mount is registered first', async () => {
+      const mounts = [
+        makeMount('coll2.sub', '/fake/ext/mount-obj'),
+        makeMount('coll2', '/fake/ext/mount-obj'),
+      ];
+      await expect(loadExtensions(mounts, {})).rejects.toThrow(
+        /Mount collision/
+      );
+    });
+
+    it('control: two nested mounts sharing a loader-created intermediate both resolve', async () => {
+      const mounts = [
+        makeMount('ctrl.b', '/fake/ext/mount-obj'),
+        makeMount('ctrl.c', '/fake/ext/mount-obj'),
+      ];
+      const result = await loadExtensions(mounts, {});
+      const ctrl = result.extTree['ctrl'] as Record<string, unknown>;
+      expect(ctrl['b']).toEqual({ k: 'obj' });
+      expect(ctrl['c']).toEqual({ k: 'obj' });
+    });
+  });
+
+  // ============================================================
+  // #37: orphan-config-key check accepts only exact mount paths
+  // ============================================================
+
+  describe('#37: dot-path mounts require an exact config key match', () => {
+    it('rejects a config key that names only the first segment of a dot-path mount', async () => {
+      const mounts = [makeMount('a.b', '/fake/ext/dotpath-config-capture')];
+      const config = { a: { setting: 1 } };
+      await expect(loadExtensions(mounts, config)).rejects.toThrow(
+        ConfigValidationError
+      );
+      await expect(loadExtensions(mounts, config)).rejects.toThrow(
+        /does not match any mount/
+      );
+    });
+
+    it('control: a config key matching the full dotted mount path reaches the factory', async () => {
+      const mounts = [makeMount('a.b', '/fake/ext/dotpath-config-capture')];
+      const config = { 'a.b': { setting: 1 } };
+      await loadExtensions(mounts, config);
+      expect(dotpathConfigCaptured.cfg).toEqual({ setting: 1 });
+    });
+  });
+
+  // ============================================================
+  // #39: runDisposes is exported from the public barrel
+  // ============================================================
+
+  describe('#39: runDisposes public export', () => {
+    it('runs dispose callbacks in reverse order and swallows their errors', async () => {
+      const order: number[] = [];
+      const disposes = [
+        () => {
+          order.push(1);
+        },
+        () => {
+          throw new Error('boom');
+        },
+        () => {
+          order.push(3);
+        },
+      ];
+      await expect(runDisposes(disposes)).resolves.toBeUndefined();
+      expect(order).toEqual([3, 1]);
     });
   });
 });

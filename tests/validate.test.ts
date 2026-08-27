@@ -1,6 +1,6 @@
 /**
  * Tests for checkRuntimeVersion, validateContext, validateBundleRestrictions
- * Covers: HP-9, EC-5, EC-12, EC-14 (AC-9, AC-13, AC-14, AC-15, AC-17)
+ * Covers: HP-9, EC-5, EC-12, EC-14, #38 (AC-9, AC-13, AC-14, AC-15, AC-17)
  */
 
 import type { ContextBlock, RillConfigFile } from '@rcrsr/rill-config';
@@ -194,6 +194,36 @@ describe('validateContext', () => {
       expect((caught as ContextValidationError).name).toBe(
         'ContextValidationError'
       );
+    });
+  });
+
+  describe('regression: prototype-inherited keys do not satisfy an own-value check', () => {
+    it('throws ContextValidationError when the key is reachable only via the prototype chain', () => {
+      const values: Record<string, unknown> = {};
+      Object.setPrototypeOf(values, { username: 'inherited-value' });
+      const context: ContextBlock = {
+        schema: { username: { type: 'string' } },
+        values,
+      };
+
+      expect(Object.hasOwn(values, 'username')).toBe(false);
+      expect(() => validateContext(context)).toThrowError(
+        ContextValidationError
+      );
+      expect(() => validateContext(context)).toThrowError(
+        /Missing context value/
+      );
+    });
+
+    it('returns the value when it is present as an own property', () => {
+      const context: ContextBlock = {
+        schema: { username: { type: 'string' } },
+        values: { username: 'alice' },
+      };
+
+      const result = validateContext(context);
+
+      expect(result['username']).toBe('alice');
     });
   });
 

@@ -1,6 +1,6 @@
 /**
  * Tests for extractVariables, validateVarScope, interpolate, and session functions.
- * Covers: IR-1, IR-2, IR-3, IR-9, EC-1, EC-6
+ * Covers: IR-1, IR-2, IR-3, IR-9, EC-1, EC-6, #38
  * (AC-1..AC-9, AC-15..AC-20, AC-25..AC-28, AC-33..AC-34)
  */
 
@@ -275,6 +275,54 @@ describe('substituteSessionVars', () => {
     expect(() => substituteSessionVars(config, {})).toThrow(
       'Missing session variables: A_VAR, Z_VAR'
     );
+  });
+});
+
+// ============================================================
+// prototype pollution regression
+// ============================================================
+
+describe('substituteValue prototype pollution guard', () => {
+  it('does not pollute Object.prototype when an own "__proto__" key holds an interpolated subtree', () => {
+    // `{ __proto__: ... }` as an object literal sets the prototype rather
+    // than creating an own key, so this uses a raw JSON string to get a
+    // genuine own "__proto__" property once parsed.
+    const raw =
+      '{"extensions":{"mounts":{},"config":{"__proto__":{"polluted":true}}}}';
+    const config = JSON.parse(raw) as RillConfigFile;
+
+    const result = interpolate(config, {});
+
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    const configValue = (
+      result as unknown as { extensions: { config: unknown } }
+    ).extensions.config;
+    expect(Object.getPrototypeOf(configValue)).toBe(Object.prototype);
+  });
+
+  it('does not pollute Object.prototype via substituteSessionVars either', () => {
+    const raw =
+      '{"context":{"schema":{},"values":{"__proto__":{"polluted":true}}}}';
+    const config = JSON.parse(raw) as RillConfigFile;
+
+    const result = substituteSessionVars(config, {});
+
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    const values = (result as unknown as { context: { values: unknown } })
+      .context.values;
+    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+  });
+
+  it('leaves ordinary keys intact (control)', () => {
+    const config = {
+      name: '${A}',
+      description: 'plain',
+    } as RillConfigFile;
+
+    const result = interpolate(config, { A: 'alpha' });
+
+    expect(result.name).toBe('alpha');
+    expect(result.description).toBe('plain');
   });
 });
 

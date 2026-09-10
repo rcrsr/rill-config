@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-09
+
 ### Breaking Changes
 
 - **Peer dependency:** `peerDependencies["@rcrsr/rill"]` moves from `~0.20.0` to `~0.21.0`, that is `>=0.21.0 <0.22.0`. This release does not install alongside rill 0.20.x; hosts must upgrade rill to 0.21.x in the same step. The suite and typecheck pass against 0.21.0 with no source change. ([#52](https://github.com/rcrsr/rill-config/pull/52))

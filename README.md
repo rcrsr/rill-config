@@ -102,7 +102,7 @@ import { loadProject } from '@rcrsr/rill-config';
 
 const project = await loadProject({
   configPath: '/path/to/project/rill-config.json',
-  rillVersion: '0.20.0',
+  rillVersion: '0.21.0',
   prefix: '/path/to/project/.rill/npm',
 });
 // project.config, project.extTree, project.resolverConfig, ...
@@ -137,7 +137,7 @@ import * as myext from './extensions/my-ext/index.ts';
 
 const project = await loadProject({
   configPath: '/path/to/project/rill-config.json',
-  rillVersion: '0.20.0',
+  rillVersion: '0.21.0',
   extensionModules: new Map([['myext', myext]]),
 });
 ```
@@ -149,7 +149,7 @@ import { envProvider, literalProvider, chainProviders } from '@rcrsr/rill-config
 
 const project = await loadProject({
   configPath: '/path/to/project/rill-config.json',
-  rillVersion: '0.20.0',
+  rillVersion: '0.21.0',
   varProvider: literalProvider({ RILL_MODEL: 'gemini-2.5-flash' }),
 });
 ```
@@ -194,7 +194,7 @@ function fileProvider(dir: string): VariableProvider {
 
 const project = await loadProject({
   configPath: '/path/to/project/rill-config.json',
-  rillVersion: '0.20.0',
+  rillVersion: '0.21.0',
   varProvider: chainProviders([fileProvider('/run/secrets'), envProvider()]),
 });
 ```

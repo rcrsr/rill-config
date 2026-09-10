@@ -90,7 +90,11 @@ function parseModuleNotFoundError(
  * as transitive. Rare in practice (broken install) and surfaces a still-useful
  * message; a real fix needs the resolved URL alongside the bare specifier.
  */
-function isEntrypointMiss(pkg: string, parsedSpecifier: string): boolean {
+function isEntrypointMiss(
+  pkg: string,
+  parsedSpecifier: string,
+  prefix?: string
+): boolean {
   if (parsedSpecifier === pkg) return true;
   const pkgIsPath =
     pkg.startsWith('./') ||
@@ -100,7 +104,7 @@ function isEntrypointMiss(pkg: string, parsedSpecifier: string): boolean {
   if (!pkgIsPath) return false;
   const pkgAbs = pkg.startsWith('file://')
     ? fileURLToPath(pkg)
-    : resolve(process.cwd(), pkg);
+    : resolve(prefix ?? process.cwd(), pkg);
   let specAbs = parsedSpecifier;
   if (specAbs.startsWith('file://')) specAbs = fileURLToPath(specAbs);
   if (!isAbsolute(specAbs)) return false;
@@ -175,11 +179,17 @@ export async function runDisposes(
 function mountValue(
   tree: Record<string, RillValue>,
   mountPath: string,
-  value: RillValue
+  value: RillValue,
+  loaderCreated: WeakSet<object>
 ): void {
   const parts = mountPath.split('.');
 
   if (parts.length === 1) {
+    if (Object.hasOwn(tree, mountPath)) {
+      throw new ExtensionLoadError(
+        `Mount collision at "${mountPath}": already occupied`
+      );
+    }
     tree[mountPath] = value;
     return;
   }
@@ -194,6 +204,7 @@ function mountValue(
     const existing = node[part];
     if (existing === undefined) {
       const intermediate: Record<string, RillValue> = Object.create(null);
+      loaderCreated.add(intermediate);
       node[part] = intermediate as unknown as RillValue;
     } else if (
       typeof existing !== 'object' ||
@@ -201,7 +212,8 @@ function mountValue(
       Array.isArray(existing) ||
       isApplicationCallable(existing) ||
       isTuple(existing) ||
-      isVector(existing)
+      isVector(existing) ||
+      !loaderCreated.has(existing as object)
     ) {
       const prefix = parts.slice(0, i + 1).join('.');
       throw new ExtensionLoadError(
@@ -302,7 +314,10 @@ async function loadModules(
     } catch (err) {
       if (isModuleNotFoundError(err)) {
         const parsed = parseModuleNotFoundError(err as Error);
-        if (parsed === undefined || isEntrypointMiss(pkg, parsed.specifier)) {
+        if (
+          parsed === undefined ||
+          isEntrypointMiss(pkg, parsed.specifier, options?.prefix)
+        ) {
           missingPackages.push(pkg);
           continue;
         }
@@ -401,22 +416,22 @@ function validateManifests(
 }
 
 /**
- * Phase 3: every top-level config key must correspond to a known mount
- * (either as a full mountPath, or as the first segment of one).
+ * Phase 3: every top-level config key must correspond to a known mount's
+ * exact dotted mountPath. `invokeFactories` reads `config[mount.mountPath]`
+ * by that exact key, so a config key matching only a mount path's first
+ * segment would never reach the factory and must be rejected here too.
  */
 function assertNoOrphanConfigKeys(
   config: Record<string, unknown>,
   mounts: ResolvedMount[]
 ): void {
-  const mountFirstSegments = new Set<string>();
   const mountPaths = new Set<string>();
   for (const mount of mounts) {
     mountPaths.add(mount.mountPath);
-    mountFirstSegments.add(mount.mountPath.split('.')[0]!);
   }
 
   for (const key of Object.keys(config)) {
-    if (!mountFirstSegments.has(key) && !mountPaths.has(key)) {
+    if (!mountPaths.has(key)) {
       throw new ConfigValidationError(
         `Config key ${key} does not match any mount`
       );
@@ -424,7 +439,7 @@ function assertNoOrphanConfigKeys(
   }
 }
 
-type LoadExtensionsOptions = {
+export type LoadExtensionsOptions = {
   signal?: AbortSignal;
   prefix?: string;
   // A data map, not a `ModuleProvider` interface (§NOD.8.1): a provider
@@ -488,6 +503,7 @@ async function invokeFactories(
   >;
   const disposes: Array<() => void | Promise<void>> = [];
   const errorCodes = new Map<string, string>();
+  const loaderCreated = new WeakSet<object>();
 
   try {
     for (const mount of mounts) {
@@ -508,7 +524,7 @@ async function invokeFactories(
         registerErrorCode(name: string, kind: string): void {
           const existing = errorCodes.get(name);
           if (existing !== undefined && existing !== kind) {
-            throw new Error(
+            throw new ExtensionLoadError(
               `Error code ${name} already registered with kind ${existing}`
             );
           }
@@ -533,6 +549,12 @@ async function invokeFactories(
       }
 
       // Factory must return an object with a value property.
+      if (typeof result !== 'object' || result === null) {
+        throw new ExtensionLoadError(
+          `Factory for ${pkg} returned a non-object`
+        );
+      }
+
       if (!('value' in result)) {
         throw new ExtensionLoadError(
           `Factory for ${pkg} returned result without value property`
@@ -551,7 +573,7 @@ async function invokeFactories(
       }
 
       // Store the value at its mount path by reference, not by copy.
-      mountValue(tree, mount.mountPath, result.value);
+      mountValue(tree, mount.mountPath, result.value, loaderCreated);
     }
   } catch (err) {
     await runDisposes(disposes);

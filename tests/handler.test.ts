@@ -1,6 +1,6 @@
 /**
  * Tests for introspectHandler and marshalCliArgs
- * Covers: AC-22, AC-29, EC-16, BC-7
+ * Covers: AC-22, AC-29, EC-16, BC-7, #34
  */
 
 import {
@@ -200,10 +200,45 @@ describe('marshalCliArgs', () => {
         HandlerArgError
       );
     });
+
+    it('throws HandlerArgError for an empty string', () => {
+      // #34: Number('') and Number('   ') both coerce to 0, not NaN, so the
+      // NaN check alone would accept them; the trim() guard rejects them.
+      const params = [makeParam('count', 'number')];
+      expect(() => marshalCliArgs({ count: '' }, params)).toThrow(
+        HandlerArgError
+      );
+    });
+
+    it('throws HandlerArgError for a whitespace-only string', () => {
+      // #34
+      const params = [makeParam('count', 'number')];
+      expect(() => marshalCliArgs({ count: '   ' }, params)).toThrow(
+        HandlerArgError
+      );
+    });
+
+    it('converts "0" to the number 0', () => {
+      const params = [makeParam('count', 'number')];
+      const result = marshalCliArgs({ count: '0' }, params);
+      expect(result['count']).toBe(0);
+    });
+
+    it('converts "-3.5" to the number -3.5', () => {
+      const params = [makeParam('count', 'number')];
+      const result = marshalCliArgs({ count: '-3.5' }, params);
+      expect(result['count']).toBe(-3.5);
+    });
   });
 
   describe('type coercion: bool', () => {
     it('sets bool param to true when flag is present', () => {
+      const params = [makeParam('verbose', 'bool')];
+      const result = marshalCliArgs({ verbose: '' }, params);
+      expect(result['verbose']).toBe(true);
+    });
+
+    it('still coerces empty string to true (#34: number-only guard)', () => {
       const params = [makeParam('verbose', 'bool')];
       const result = marshalCliArgs({ verbose: '' }, params);
       expect(result['verbose']).toBe(true);

@@ -31,10 +31,10 @@ export function checkRuntimeVersion(
 export function validateContext(
   context: ContextBlock
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
 
   for (const key of Object.keys(context.schema)) {
-    if (!(key in context.values)) {
+    if (!Object.hasOwn(context.values, key)) {
       throw new ContextValidationError(`Missing context value for key: ${key}`);
     }
 

@@ -79,7 +79,7 @@ export function introspectHandler(
 function coerceArgValue(raw: string, type: string, paramName: string): unknown {
   if (type === 'number') {
     const n = Number(raw);
-    if (Number.isNaN(n)) {
+    if (raw.trim() === '' || Number.isNaN(n)) {
       throw new HandlerArgError(
         `Parameter ${paramName}: cannot convert '${raw}' to number`
       );

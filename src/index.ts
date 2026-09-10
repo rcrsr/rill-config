@@ -40,7 +40,8 @@ export { resolveMounts, detectNamespaceCollisions } from './mounts.js';
 // ============================================================
 // EXTENSION LOADER
 // ============================================================
-export { loadExtensions } from './loader.js';
+export { loadExtensions, runDisposes } from './loader.js';
+export type { LoadExtensionsOptions } from './loader.js';
 
 // ============================================================
 // BINDINGS

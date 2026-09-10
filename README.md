@@ -79,6 +79,7 @@ loadExtensions(
 | `resolveMounts(mounts)` | Parse mount paths and package specifiers |
 | `detectNamespaceCollisions(mounts)` | Find conflicting mount paths |
 | `loadExtensions(mounts, config, options)` | Load and initialize extensions |
+| `runDisposes(disposes)` | Run dispose callbacks in reverse order, swallowing errors |
 
 ### Bindings Generation
 

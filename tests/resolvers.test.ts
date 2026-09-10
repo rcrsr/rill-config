@@ -1,5 +1,7 @@
 /**
  * Tests for buildResolvers
+ *
+ * Covers: #32
  */
 
 import { buildResolvers, ResolverError } from '@rcrsr/rill-config';
@@ -247,6 +249,46 @@ describe('buildResolvers', () => {
         const resolution = await moduleResolver!('ext');
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"ext folder"' })
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+  });
+
+  describe('prototype-name aliases do not shadow the lookup', () => {
+    it('does not resolve "constructor" as a directory when unconfigured', async () => {
+      const result = buildResolvers(
+        makeOptions({ modulesConfig: { lib: '/tmp' } })
+      );
+      const moduleResolver = result.resolvers['module'];
+      await expect(moduleResolver!('constructor')).rejects.toThrow(
+        /not found in resolver config/
+      );
+    });
+
+    it('does not resolve "toString.sub" as a directory when unconfigured', async () => {
+      const result = buildResolvers(
+        makeOptions({ modulesConfig: { lib: '/tmp' } })
+      );
+      const moduleResolver = result.resolvers['module'];
+      await expect(moduleResolver!('toString.sub')).rejects.toThrow(
+        /not found in resolver config/
+      );
+    });
+
+    it('still resolves a configured alias to a nested file (control)', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
+      fs.mkdirSync(path.join(dir, 'sub'));
+      fs.writeFileSync(path.join(dir, 'sub', 'path.rill'), '"control value"');
+      try {
+        const result = buildResolvers(
+          makeOptions({ modulesConfig: { constructor: dir } })
+        );
+        const moduleResolver = result.resolvers['module'];
+        const resolution = await moduleResolver!('constructor.sub.path');
+        expect(resolution).toEqual(
+          expect.objectContaining({ kind: 'source', text: '"control value"' })
         );
       } finally {
         fs.rmSync(dir, { recursive: true });

@@ -1,7 +1,8 @@
 /**
  * Tests for buildResolvers
  *
- * Covers: #32
+ * Covers: HP-1, HP-2, HP-3, HP-4, HP-5, HP-6, EC-1, EC-2, EC-3, EC-4, EC-5,
+ * BC-1, BC-2, #32
  */
 
 import { buildResolvers, ResolverError } from '@rcrsr/rill-config';
@@ -13,8 +14,8 @@ import {
 import type { ApplicationCallable, RillValue } from '@rcrsr/rill';
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
+import { withTempDir } from './helpers/temp-dir.js';
 
 // ============================================================
 // buildResolvers
@@ -51,9 +52,8 @@ describe('buildResolvers', () => {
 
   describe('module folder aliasing', () => {
     it('resolves dot-path to file within aliased directory', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.writeFileSync(path.join(dir, 'ext.rill'), '"extension bindings"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.writeFileSync(path.join(dir, 'ext.rill'), '"extension bindings"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { bindings: dir }, configDir: '/tmp' })
         );
@@ -65,16 +65,13 @@ describe('buildResolvers', () => {
             text: '"extension bindings"',
           })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('resolves nested dot-path to nested file path', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.mkdirSync(path.join(dir, 'sub'));
-      fs.writeFileSync(path.join(dir, 'sub', 'deep.rill'), '"deep value"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.mkdirSync(path.join(dir, 'sub'));
+        fs.writeFileSync(path.join(dir, 'sub', 'deep.rill'), '"deep value"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -83,19 +80,16 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"deep value"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('resolves a well-formed multi-segment dot-path to the expected file path', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.mkdirSync(path.join(dir, 'etc'), { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, 'etc', 'passwd.rill'),
-        '"safe passwd module"'
-      );
-      try {
+      await withTempDir(async (dir) => {
+        fs.mkdirSync(path.join(dir, 'etc'), { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, 'etc', 'passwd.rill'),
+          '"safe passwd module"'
+        );
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -107,15 +101,12 @@ describe('buildResolvers', () => {
             text: '"safe passwd module"',
           })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('resolves bare alias to index.rill', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.writeFileSync(path.join(dir, 'index.rill'), '"index content"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.writeFileSync(path.join(dir, 'index.rill'), '"index content"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { utils: dir }, configDir: '/tmp' })
         );
@@ -124,14 +115,11 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"index content"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('throws ResolverError for a dot-path with an empty segment', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      try {
+      await withTempDir((dir) => {
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -140,28 +128,22 @@ describe('buildResolvers', () => {
         expect(() => moduleResolver!('lib..etc.passwd')).toThrow(
           /lib\.\.etc\.passwd/
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('throws ResolverError for a trailing-dot resource', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      try {
+      await withTempDir((dir) => {
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
         const moduleResolver = result.resolvers['module'];
         expect(() => moduleResolver!('lib.')).toThrow(ResolverError);
         expect(() => moduleResolver!('lib.')).toThrow(/lib\./);
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('throws ResolverError for a segment containing an absolute path', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      try {
+      await withTempDir((dir) => {
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -170,14 +152,11 @@ describe('buildResolvers', () => {
         expect(() => moduleResolver!('lib./etc/passwd')).toThrow(
           /escapes module directory/
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('throws ResolverError for a ..-based traversal segment', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      try {
+      await withTempDir((dir) => {
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -188,16 +167,13 @@ describe('buildResolvers', () => {
         // containment check ever runs. Both defenses agree: reject.
         const resource = 'lib.sub/../../../etc/passwd';
         expect(() => moduleResolver!(resource)).toThrow(ResolverError);
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('resolves a legitimate nested dot-path within the module directory', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.mkdirSync(path.join(dir, 'sub'));
-      fs.writeFileSync(path.join(dir, 'sub', 'mod.rill'), '"nested module"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.mkdirSync(path.join(dir, 'sub'));
+        fs.writeFileSync(path.join(dir, 'sub', 'mod.rill'), '"nested module"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: dir }, configDir: '/tmp' })
         );
@@ -206,9 +182,7 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"nested module"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('throws RILL-R050 for unknown module alias', async () => {
@@ -220,11 +194,10 @@ describe('buildResolvers', () => {
     });
 
     it('resolves module paths relative to configDir', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      const subDir = path.join(dir, 'modules');
-      fs.mkdirSync(subDir);
-      fs.writeFileSync(path.join(subDir, 'index.rill'), '"from modules"');
-      try {
+      await withTempDir(async (dir) => {
+        const subDir = path.join(dir, 'modules');
+        fs.mkdirSync(subDir);
+        fs.writeFileSync(path.join(subDir, 'index.rill'), '"from modules"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { lib: './modules' }, configDir: dir })
         );
@@ -233,15 +206,12 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"from modules"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
 
     it('does not reserve ext or context as module names', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.writeFileSync(path.join(dir, 'index.rill'), '"ext folder"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.writeFileSync(path.join(dir, 'index.rill'), '"ext folder"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { ext: dir }, configDir: '/tmp' })
         );
@@ -250,9 +220,7 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"ext folder"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
   });
 
@@ -278,10 +246,9 @@ describe('buildResolvers', () => {
     });
 
     it('still resolves a configured alias to a nested file (control)', async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rill-resolvers-'));
-      fs.mkdirSync(path.join(dir, 'sub'));
-      fs.writeFileSync(path.join(dir, 'sub', 'path.rill'), '"control value"');
-      try {
+      await withTempDir(async (dir) => {
+        fs.mkdirSync(path.join(dir, 'sub'));
+        fs.writeFileSync(path.join(dir, 'sub', 'path.rill'), '"control value"');
         const result = buildResolvers(
           makeOptions({ modulesConfig: { constructor: dir } })
         );
@@ -290,9 +257,7 @@ describe('buildResolvers', () => {
         expect(resolution).toEqual(
           expect.objectContaining({ kind: 'source', text: '"control value"' })
         );
-      } finally {
-        fs.rmSync(dir, { recursive: true });
-      }
+      });
     });
   });
 

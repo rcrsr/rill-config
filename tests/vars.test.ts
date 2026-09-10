@@ -297,7 +297,7 @@ describe('substituteValue prototype pollution guard', () => {
     const configValue = (
       result as unknown as { extensions: { config: unknown } }
     ).extensions.config;
-    expect(Object.getPrototypeOf(configValue)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(configValue)).toBeNull();
   });
 
   it('does not pollute Object.prototype via substituteSessionVars either', () => {
@@ -310,7 +310,7 @@ describe('substituteValue prototype pollution guard', () => {
     expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
     const values = (result as unknown as { context: { values: unknown } })
       .context.values;
-    expect(Object.getPrototypeOf(values)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(values)).toBeNull();
   });
 
   it('leaves ordinary keys intact (control)', () => {

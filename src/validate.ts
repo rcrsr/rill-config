@@ -31,7 +31,7 @@ export function checkRuntimeVersion(
 export function validateContext(
   context: ContextBlock
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = Object.create(null);
 
   for (const key of Object.keys(context.schema)) {
     if (!Object.hasOwn(context.values, key)) {

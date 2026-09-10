@@ -12,6 +12,11 @@ pre-commit:
     oxfmt:
       priority: 1
       glob: '*.{ts,tsx,js,mjs,cjs,json,yaml,yml}'
+      # The lockfile is in .oxfmtrc.json ignorePatterns. Without this exclude a
+      # lockfile-only commit hands oxfmt an all-ignored list, which exits
+      # non-zero and halts the piped chain. See REPO-STANDARDS.md STD-HOOK-5.
+      exclude:
+        - pnpm-lock.yaml
       run: pnpm exec oxfmt {staged_files}
       stage_fixed: true
     oxlint:
@@ -23,7 +28,9 @@ pre-commit:
 pre-push:
   parallel: true
   commands:
-    check:types:
+    # Command key is `typecheck` (the ecosystem name STD-HOOK-4 looks for);
+    # the script it runs keeps this package's root vocabulary, `check:types`.
+    typecheck:
       run: pnpm run check:types
     test:
       run: pnpm run test

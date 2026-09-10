@@ -1,5 +1,8 @@
 /**
  * Tests for buildExtensionBindings and buildContextBindings
+ *
+ * Covers: HP-1, HP-2, HP-3, EC-1, EC-2, EC-3, EC-4, EC-5, EC-6
+ * (AC-5, AC-6, AC-7, AC-8, AC-11)
  */
 
 import {

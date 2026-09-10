@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Loader, config, and bindings hardening:** Errors now throw ConfigError subclasses instead of raw errors, and prototype-named keys cannot escape Object.prototype. ConfigFlag resolves against the caller's cwd, empty number CLI arguments are rejected, and context.schema keys are validated before code generation. ([#45](https://github.com/rcrsr/rill-config/pull/45))
+- **Test suite hardening:** Fixture paths now resolve from import.meta.url to fix IDE runners with different working directories. Rejection assertions verify error shapes, temp-directory setup is deduplicated, and ConfigError tests validate .code and .name. ([#53](https://github.com/rcrsr/rill-config/pull/53))
 
 ## [0.20.0] - 2026-07-30
 

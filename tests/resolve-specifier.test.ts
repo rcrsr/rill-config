@@ -4,7 +4,7 @@
  */
 
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveSpecifier } from '../src/loader.js';
 import { describe, expect, it } from 'vitest';
 
@@ -52,7 +52,12 @@ describe('resolveSpecifier', () => {
     });
 
     it('throws for a non-existent package', () => {
-      expect(() => resolveSpecifier('@nonexistent/pkg-xyz')).toThrow();
+      try {
+        resolveSpecifier('@nonexistent/pkg-xyz');
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect((err as NodeJS.ErrnoException).code).toBe('MODULE_NOT_FOUND');
+      }
     });
   });
 
@@ -64,7 +69,9 @@ describe('resolveSpecifier', () => {
     });
 
     it('resolves bare specifier from prefix directory', () => {
-      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const prefix = fileURLToPath(
+        new URL('./fixtures/prefix-resolution', import.meta.url)
+      );
       const result = resolveSpecifier('@rcrsr/test-ext', prefix);
       expect(result.startsWith('file://')).toBe(true);
       expect(result).toContain(
@@ -73,7 +80,9 @@ describe('resolveSpecifier', () => {
     });
 
     it('resolves a relative specifier against prefix, not cwd, when prefix differs from cwd', () => {
-      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const prefix = fileURLToPath(
+        new URL('./fixtures/prefix-resolution', import.meta.url)
+      );
       const result = resolveSpecifier('./x.js', prefix);
       const expected = pathToFileURL(resolve(prefix, './x.js')).href;
       expect(result).toBe(expected);

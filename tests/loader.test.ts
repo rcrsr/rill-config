@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   loadExtensions,
   loadProject,
@@ -491,18 +491,14 @@ describe('loadExtensions', () => {
       const mounts = [
         makeMount('vext', '/fake/ext/version-mismatch', '^2.0.0'),
       ];
-      try {
-        await loadExtensions(mounts, {});
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionVersionError);
-        const msg = (err as Error).message;
-        expect(msg).toContain('/fake/ext/version-mismatch');
-        expect(msg).toContain('"vext"');
-        expect(msg).toContain('"1.0.0"');
-        expect(msg).toContain('"^2.0.0"');
-        expect(msg).toContain('published VERSION constant is stale');
-      }
+      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionVersionError);
+      const msg = (err as Error).message;
+      expect(msg).toContain('/fake/ext/version-mismatch');
+      expect(msg).toContain('"vext"');
+      expect(msg).toContain('"1.0.0"');
+      expect(msg).toContain('"^2.0.0"');
+      expect(msg).toContain('published VERSION constant is stale');
     });
   });
 
@@ -512,9 +508,8 @@ describe('loadExtensions', () => {
   // ============================================================
 
   describe('EC-7 (transitive dependency): ERR_MODULE_NOT_FOUND surfaces underlying specifier', () => {
-    const transitiveFixture = resolve(
-      process.cwd(),
-      'tests/fixtures/transitive-miss.mjs'
+    const transitiveFixture = fileURLToPath(
+      new URL('./fixtures/transitive-miss.mjs', import.meta.url)
     );
 
     it('throws ExtensionLoadError naming the missing transitive specifier', async () => {
@@ -526,18 +521,14 @@ describe('loadExtensions', () => {
 
     it('error message names the transitive dep and the importing file', async () => {
       const mounts = [makeMount('tm', transitiveFixture)];
-      try {
-        await loadExtensions(mounts, {});
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        const msg = (err as Error).message;
-        expect(msg).toContain('fake-transitive-dep-rcrsr-test');
-        expect(msg).toContain('transitive-miss.mjs');
-        expect(msg).toContain('cannot find transitive dependency');
-        // Regression guard: must not be misclassified as the entrypoint.
-        expect(msg).not.toContain(`Cannot find packages: ${transitiveFixture}`);
-      }
+      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      const msg = (err as Error).message;
+      expect(msg).toContain('fake-transitive-dep-rcrsr-test');
+      expect(msg).toContain('transitive-miss.mjs');
+      expect(msg).toContain('cannot find transitive dependency');
+      // Regression guard: must not be misclassified as the entrypoint.
+      expect(msg).not.toContain(`Cannot find packages: ${transitiveFixture}`);
     });
 
     it('error message includes rill-npm hint when dep directory exists under .rill/npm/node_modules', async () => {
@@ -546,20 +537,18 @@ describe('loadExtensions', () => {
       // rill-npm-hint/. The walk is independent of the loadExtensions
       // `prefix` option (which anchors createRequire for bare entrypoints,
       // not the hint search), so the test does not pass prefix at all.
-      const hintedFixture = resolve(
-        process.cwd(),
-        'tests/fixtures/rill-npm-hint/extensions/hinted-dep.mjs'
+      const hintedFixture = fileURLToPath(
+        new URL(
+          './fixtures/rill-npm-hint/extensions/hinted-dep.mjs',
+          import.meta.url
+        )
       );
       const mounts = [makeMount('hm', hintedFixture)];
-      try {
-        await loadExtensions(mounts, {});
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        const msg = (err as Error).message;
-        expect(msg).toContain('Hint:');
-        expect(msg).toContain('.rill/npm/node_modules');
-      }
+      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      const msg = (err as Error).message;
+      expect(msg).toContain('Hint:');
+      expect(msg).toContain('.rill/npm/node_modules');
     });
 
     it('aggregates entrypoint and transitive misses into a single error', async () => {
@@ -570,15 +559,11 @@ describe('loadExtensions', () => {
         makeMount('a', '@nonexistent/rill-ext-aggregate-99999'),
         makeMount('tm', transitiveFixture),
       ];
-      try {
-        await loadExtensions(mounts, {});
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        const msg = (err as Error).message;
-        expect(msg).toContain('@nonexistent/rill-ext-aggregate-99999');
-        expect(msg).toContain('fake-transitive-dep-rcrsr-test');
-      }
+      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      const msg = (err as Error).message;
+      expect(msg).toContain('@nonexistent/rill-ext-aggregate-99999');
+      expect(msg).toContain('fake-transitive-dep-rcrsr-test');
     });
   });
 
@@ -743,7 +728,9 @@ describe('loadExtensions', () => {
   // ============================================================
 
   describe('prefix option', () => {
-    const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+    const prefix = fileURLToPath(
+      new URL('./fixtures/prefix-resolution', import.meta.url)
+    );
 
     it('resolves bare specifier when prefix points to fixture node_modules', async () => {
       // NOTES case #3: loadExtensions with prefix succeeds
@@ -762,9 +749,11 @@ describe('loadExtensions', () => {
 
     it('loadProject end-to-end resolves extension via prefix', async () => {
       // NOTES case #5: full project load with prefix option
-      const configPath = resolve(
-        process.cwd(),
-        'tests/fixtures/prefix-resolution/rill-config.json'
+      const configPath = fileURLToPath(
+        new URL(
+          './fixtures/prefix-resolution/rill-config.json',
+          import.meta.url
+        )
       );
       const result = await loadProject({
         configPath,
@@ -815,16 +804,12 @@ describe('loadExtensions', () => {
         makeMount('a', '@nonexistent/rill-ext-order-a-99999'),
         makeMount('b', '@nonexistent/rill-ext-order-b-99999'),
       ];
-      try {
-        await loadExtensions(mounts, {});
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        const msg = (err as Error).message;
-        expect(msg).toBe(
-          'Cannot find packages: @nonexistent/rill-ext-order-a-99999, @nonexistent/rill-ext-order-b-99999'
-        );
-      }
+      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      const msg = (err as Error).message;
+      expect(msg).toBe(
+        'Cannot find packages: @nonexistent/rill-ext-order-a-99999, @nonexistent/rill-ext-order-b-99999'
+      );
     });
   });
 
@@ -909,13 +894,11 @@ describe('loadExtensions', () => {
       const extensionModules = new Map<string, unknown>([
         ['noman', { someOtherExport: 42 }],
       ]);
-      try {
-        await loadExtensions(mounts, {}, { extensionModules });
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        expect((err as Error).message).toContain('mounted at "noman"');
-      }
+      const err = await loadExtensions(mounts, {}, { extensionModules }).catch(
+        (e) => e
+      );
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      expect((err as Error).message).toContain('mounted at "noman"');
     });
 
     it('EC-13: throws ExtensionVersionError when a preloaded manifest version violates the mount constraint', async () => {
@@ -947,15 +930,17 @@ describe('loadExtensions', () => {
       for (const [value, expectedType] of cases) {
         const mounts = [makeMount('bad', './__not-on-disk-bad__.js')];
         const extensionModules = new Map<string, unknown>([['bad', value]]);
-        try {
-          await loadExtensions(mounts, {}, { extensionModules });
-          throw new Error('expected loadExtensions to reject');
-        } catch (err) {
-          expect(err).toBeInstanceOf(ExtensionLoadError);
-          expect((err as Error).message).toContain(
-            `must be an object, got ${expectedType}`
-          );
-        }
+        const err = await loadExtensions(
+          mounts,
+          {},
+          {
+            extensionModules,
+          }
+        ).catch((e) => e);
+        expect(err).toBeInstanceOf(ExtensionLoadError);
+        expect((err as Error).message).toContain(
+          `must be an object, got ${expectedType}`
+        );
       }
     });
 
@@ -975,15 +960,13 @@ describe('loadExtensions', () => {
       const extensionModules = new Map<string, unknown>([
         ['typo', { extensionManifest: { factory: () => ({ value: 'x' }) } }],
       ]);
-      try {
-        await loadExtensions(mounts, {}, { extensionModules });
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        expect((err as Error).message).toContain(
-          'Preloaded module key "typo" does not match any mount'
-        );
-      }
+      const err = await loadExtensions(mounts, {}, { extensionModules }).catch(
+        (e) => e
+      );
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      expect((err as Error).message).toContain(
+        'Preloaded module key "typo" does not match any mount'
+      );
     });
 
     it('EC-17: throws for an orphan preloaded key before importing any mount module', async () => {
@@ -1063,20 +1046,18 @@ describe('loadExtensions', () => {
 
   describe('#35: prefix-aware entrypoint-miss classification', () => {
     it('classifies a missing relative entrypoint under a non-cwd prefix as "Cannot find packages"', async () => {
-      const prefix = resolve(process.cwd(), 'tests/fixtures/prefix-resolution');
+      const prefix = fileURLToPath(
+        new URL('./fixtures/prefix-resolution', import.meta.url)
+      );
       const mounts = [
         makeMount('missing', './__does-not-exist-relative-entry__.js'),
       ];
-      try {
-        await loadExtensions(mounts, {}, { prefix });
-        throw new Error('expected loadExtensions to reject');
-      } catch (err) {
-        expect(err).toBeInstanceOf(ExtensionLoadError);
-        const msg = (err as Error).message;
-        expect(msg).toContain('Cannot find packages:');
-        expect(msg).toContain('__does-not-exist-relative-entry__.js');
-        expect(msg).not.toContain('cannot find transitive dependency');
-      }
+      const err = await loadExtensions(mounts, {}, { prefix }).catch((e) => e);
+      expect(err).toBeInstanceOf(ExtensionLoadError);
+      const msg = (err as Error).message;
+      expect(msg).toContain('Cannot find packages:');
+      expect(msg).toContain('__does-not-exist-relative-entry__.js');
+      expect(msg).not.toContain('cannot find transitive dependency');
     });
   });
 

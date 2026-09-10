@@ -44,6 +44,7 @@ Thumbs.db
 # Internal files
 .claude/
 .codanna/
+.codannaignore
 .fastembed_cache
 conduct
 internal/

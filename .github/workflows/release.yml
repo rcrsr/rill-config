@@ -24,10 +24,10 @@ jobs:
       # npm provenance attestation requires. `pnpm publish --provenance` below
       # is what consumes it. STD-REL-3 and STD-REL-4.
       #
-      # `pnpm publish --help` does not advertise --provenance, which makes it
-      # look unsupported. It is not: pnpm 11 bundles libnpmpublish's
-      # provenance.js and the flag reaches ensureProvenanceGeneration. pnpm 10
-      # ignores it silently, which is why this repo pins 11.
+      # pnpm 11 and 12 bundle libnpmpublish's provenance.js and the flag
+      # reaches ensureProvenanceGeneration (12 also lists it in
+      # `pnpm publish --help`; 11 did not). pnpm 10 ignores it silently, which
+      # is why this repo pins a major of at least 11.
       contents: write
       id-token: write
 

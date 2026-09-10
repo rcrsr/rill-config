@@ -2,9 +2,11 @@
 # key, so it is not a workspace; pnpm reads this file for settings either way,
 # which is where these three keys now live. See REPO-STANDARDS.md §8 and §9.
 
-# Dependencies allowed to run install scripts. pnpm 11 no longer reads
+# Dependencies allowed to run install scripts. pnpm 11 stopped reading
 # `pnpm.onlyBuiltDependencies` from package.json, which is the major-to-major
-# move STD-PM-6 warns about; this is the location the pinned major expects.
+# move STD-PM-6 warns about; this is the location the pinned major (12)
+# expects. pnpm 12 rejects unrecognized keys in this file, so a typo here
+# fails the install rather than silently dropping the setting.
 allowBuilds:
   lefthook: true
 

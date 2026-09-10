@@ -140,10 +140,13 @@ Two elements are always-applicable and satisfied rather than N/A. Both are
 machine-checked and report `ok`; the notes stay because they carry the reasoning
 for the shape the checker accepts, which a passing line does not:
 
-- **STD-PM-6.** Verified against the pinned major, pnpm 11.18.0: it no longer
-  reads `pnpm.onlyBuiltDependencies` from `package.json` and warns "Ignored
-  build scripts" when the allowlist is absent. The allowlist is `allowBuilds` in
-  `pnpm-workspace.yaml`, which is where 11 expects it. As of rill-dev 0.2.0 the
+- **STD-PM-6.** Verified against the pinned major, pnpm 12.3.4: since pnpm 11 it no
+  longer reads `pnpm.onlyBuiltDependencies` from `package.json` and warns
+  "Ignored build scripts" when the allowlist is absent. The allowlist is
+  `allowBuilds` in `pnpm-workspace.yaml`, which is where 11 and 12 expect it.
+  pnpm 12 also rejects unrecognized keys in that file
+  (`ERR_PNPM_UNRECOGNIZED_WORKSPACE_SETTINGS`), so a misspelled setting fails
+  the install instead of being silently ignored. As of rill-dev 0.2.0 the
   checker decides this from the tree, reading the pinned pnpm major to know
   which of the two locations is load-bearing; before then it reported `--`.
 - **STD-SUP-4.** `minimumReleaseAgeExclude` names `@rcrsr/rill` and

@@ -202,7 +202,8 @@ describe('marshalCliArgs', () => {
     });
 
     it('throws HandlerArgError for an empty string', () => {
-      // #34: empty string coerced to NaN by Number(''); guard it explicitly
+      // #34: Number('') and Number('   ') both coerce to 0, not NaN, so the
+      // NaN check alone would accept them; the trim() guard rejects them.
       const params = [makeParam('count', 'number')];
       expect(() => marshalCliArgs({ count: '' }, params)).toThrow(
         HandlerArgError

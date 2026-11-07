@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLAUDE.md contributor guidance:** Adds missing contributor rules and fixes stale statements; no source, test, or published behavior changes. ([#55](https://github.com/rcrsr/rill-config/pull/55))
+
 ## [0.21.0] - 2026-09-09
 
 ### Breaking Changes

@@ -64,7 +64,7 @@ describe('resolveSpecifier', () => {
   describe('with prefix anchor', () => {
     it('resolves bare specifier from cwd when prefix is undefined', () => {
       const withoutPrefix = resolveSpecifier('semver');
-      const withUndefined = resolveSpecifier('semver', undefined);
+      const withUndefined = resolveSpecifier('semver');
       expect(withUndefined).toBe(withoutPrefix);
     });
 

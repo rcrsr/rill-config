@@ -122,12 +122,12 @@ describe('resolveConfigPath', () => {
       // Force any rill-config.json existence probe to return false so the
       // ancestor walk reaches the filesystem root regardless of stray
       // artifacts (e.g. /tmp/rill-config.json) left by other processes.
-      vi.mocked(existsSync).mockImplementation(((
-        p: Parameters<typeof existsSync>[0]
-      ) => {
-        if (basename(String(p)) === 'rill-config.json') return false;
-        return realExistsSync(p);
-      }) as typeof existsSync);
+      vi.mocked(existsSync).mockImplementation(
+        (p: Parameters<typeof existsSync>[0]) => {
+          if (basename(String(p)) === 'rill-config.json') return false;
+          return realExistsSync(p);
+        }
+      );
     });
 
     afterEach(() => {

@@ -146,7 +146,7 @@ STD-PM-6 and STD-SUP-4 are always-applicable and satisfied rather than N/A. They
 machine-checked and report `ok`; the notes stay because they carry the reasoning
 for the shape the checker accepts, which a passing line does not:
 
-- **STD-PM-6.** Verified against the pinned major, pnpm 12.3.4: since pnpm 11 it no
+- **STD-PM-6.** Verified against the pinned major, pnpm 12.18.0: since pnpm 11 it no
   longer reads `pnpm.onlyBuiltDependencies` from `package.json` and warns
   "Ignored build scripts" when the allowlist is absent. The allowlist is
   `allowBuilds` in `pnpm-workspace.yaml`, which is where 11 and 12 expect it.

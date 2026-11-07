@@ -31,9 +31,9 @@ function makeCallable(options: {
 }): ScriptCallable {
   const params = (options.params ?? []).map((p) => ({
     name: p.name,
-    type: p.type as { kind: string } | undefined,
-    defaultValue: p.defaultValue as unknown,
-    annotations: (p.annotations ?? {}) as Record<string, unknown>,
+    type: p.type,
+    defaultValue: p.defaultValue,
+    annotations: p.annotations ?? {},
   }));
 
   return {
@@ -53,7 +53,7 @@ function makeCallable(options: {
       variables: new Map(),
       pipeValue: null,
     } as ScriptCallable['definingScope'],
-    annotations: (options.annotations ?? {}) as Record<string, unknown>,
+    annotations: options.annotations ?? {},
     inputShape: { kind: 'closure', params: [], ret: { kind: 'any' } },
   } as unknown as ScriptCallable;
 }

@@ -34,7 +34,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       tools: {
         run: toCallable({
-          fn: async () => 'ok',
+          fn: () => Promise.resolve('ok'),
           params: [
             {
               name: 'input',
@@ -69,7 +69,7 @@ describe('buildExtensionBindings', () => {
       ns: {
         sub: {
           fn1: toCallable({
-            fn: async () => null,
+            fn: () => Promise.resolve(null),
             params: [],
             returnType: structureToTypeValue({ kind: 'any' }),
           }),
@@ -85,7 +85,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         greet: toCallable({
-          fn: async () => 'hi',
+          fn: () => Promise.resolve('hi'),
           params: [
             {
               name: 'name',
@@ -109,7 +109,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         greet: toCallable({
-          fn: async () => 'hi',
+          fn: () => Promise.resolve('hi'),
           params: [
             {
               name: 'name',
@@ -131,7 +131,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         repeat: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'count',
@@ -153,7 +153,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         send: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'message',
@@ -181,7 +181,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         toggle: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'flag',
@@ -203,7 +203,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       tools: {
         infer: toCallable({
-          fn: async () => ({ result: 'ok' }),
+          fn: () => Promise.resolve({ result: 'ok' }),
           params: [
             {
               name: 'opts',
@@ -234,7 +234,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         call: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'options',
@@ -256,7 +256,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         call: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'options',
@@ -278,7 +278,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         process: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'items',
@@ -301,7 +301,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         call: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'opts',
@@ -331,7 +331,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       tools: {
         summarize: toCallable({
-          fn: async () => 'summary',
+          fn: () => Promise.resolve('summary'),
           params: [
             {
               name: 'text',
@@ -354,7 +354,7 @@ describe('buildExtensionBindings', () => {
 
   it('emits use<ext:name.version>:string for a string leaf', () => {
     const tree: Record<string, RillValue> = {
-      name: { version: '1.0' } as Record<string, RillValue>,
+      name: { version: '1.0' },
     };
     const result = buildExtensionBindings(tree);
     expect(result).toContain('version: use<ext:name.version>:string');
@@ -362,7 +362,7 @@ describe('buildExtensionBindings', () => {
 
   it('emits use<ext:...>:number for a number leaf', () => {
     const tree: Record<string, RillValue> = {
-      config: { port: 8080 } as Record<string, RillValue>,
+      config: { port: 8080 },
     };
     const result = buildExtensionBindings(tree);
     expect(result).toContain('port: use<ext:config.port>:number');
@@ -370,7 +370,7 @@ describe('buildExtensionBindings', () => {
 
   it('emits use<ext:...>:bool for a boolean leaf', () => {
     const tree: Record<string, RillValue> = {
-      config: { debug: true } as Record<string, RillValue>,
+      config: { debug: true },
     };
     const result = buildExtensionBindings(tree);
     expect(result).toContain('debug: use<ext:config.debug>:bool');
@@ -378,7 +378,7 @@ describe('buildExtensionBindings', () => {
 
   it('emits use<ext:...>:list for a list (array) leaf', () => {
     const tree: Record<string, RillValue> = {
-      data: { items: ['a', 'b', 'c'] } as Record<string, RillValue>,
+      data: { items: ['a', 'b', 'c'] },
     };
     const result = buildExtensionBindings(tree);
     expect(result).toContain('items: use<ext:data.items>:list');
@@ -386,7 +386,7 @@ describe('buildExtensionBindings', () => {
 
   it('emits use<ext:...>:tuple for a tuple leaf', () => {
     const tree: Record<string, RillValue> = {
-      data: { pair: createTuple([1, 2]) } as Record<string, RillValue>,
+      data: { pair: createTuple([1, 2]) },
     };
     const result = buildExtensionBindings(tree);
     expect(result).toContain('pair: use<ext:data.pair>:tuple');
@@ -400,7 +400,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         process: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'input',
@@ -432,7 +432,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         apply: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'input',
@@ -471,7 +471,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       ext: {
         transform: toCallable({
-          fn: async () => null,
+          fn: () => Promise.resolve(null),
           params: [
             {
               name: 'fn',
@@ -505,7 +505,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       tools: {
         greet: toCallable({
-          fn: async () => 'hi',
+          fn: () => Promise.resolve('hi'),
           params: [
             {
               name: 'greeting',
@@ -535,7 +535,7 @@ describe('buildExtensionBindings', () => {
     const tree: Record<string, RillValue> = {
       tools: {
         run: toCallable({
-          fn: async () => 'ok',
+          fn: () => Promise.resolve('ok'),
           params: [
             {
               name: 'label',

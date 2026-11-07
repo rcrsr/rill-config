@@ -20,7 +20,7 @@ export interface VariableProvider {
  */
 export function envProvider(): VariableProvider {
   return {
-    async provide(names: string[]): Promise<Record<string, string>> {
+    provide(names: string[]): Promise<Record<string, string>> {
       const result: Record<string, string> = Object.create(null) as Record<
         string,
         string
@@ -31,7 +31,7 @@ export function envProvider(): VariableProvider {
           result[name] = value;
         }
       }
-      return result;
+      return Promise.resolve(result);
     },
   };
 }
@@ -49,7 +49,7 @@ export function literalProvider(
   values: Record<string, string>
 ): VariableProvider {
   return {
-    async provide(names: string[]): Promise<Record<string, string>> {
+    provide(names: string[]): Promise<Record<string, string>> {
       const result: Record<string, string> = Object.create(null) as Record<
         string,
         string
@@ -60,7 +60,7 @@ export function literalProvider(
           result[name] = value;
         }
       }
-      return result;
+      return Promise.resolve(result);
     },
   };
 }

@@ -281,7 +281,7 @@ describe('buildResolvers', () => {
       const tree: Record<string, RillValue> = {
         tools: {
           greet: toCallable({
-            fn: async () => 'hello',
+            fn: () => Promise.resolve('hello'),
             params: [
               {
                 name: 'name',

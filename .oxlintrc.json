@@ -39,6 +39,53 @@
     "typescript/no-wrapper-object-types": "error",
     "typescript/no-array-constructor": "error",
 
+    // Reference rules from rill-dev's baseline (STD-LINT-12). The type-aware
+    // ones run only under `--type-aware` with oxlint-tsgolint (STD-LINT-11).
+    "max-lines": [
+      "error",
+      { "max": 1000, "skipBlankLines": true, "skipComments": true }
+    ],
+    "typescript/explicit-module-boundary-types": "error",
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    "import/no-empty-named-blocks": "error",
+    "import/no-named-as-default-member": "error",
+    "vitest/expect-expect": "error",
+    "vitest/valid-expect": "error",
+    "vitest/no-standalone-expect": "error",
+    "vitest/no-identical-title": "error",
+    "vitest/no-focused-tests": "error",
+    "vitest/no-disabled-tests": "error",
+    "vitest/no-commented-out-tests": "error",
+    "promise/catch-or-return": "error",
+    "promise/no-return-wrap": "error",
+    "promise/no-new-statics": "error",
+    "require-await": "error",
+    "radix": "error",
+    "no-throw-literal": "error",
+    "no-promise-executor-return": "error",
+    "unicorn/prefer-at": "error",
+    "unicorn/no-useless-undefined": "error",
+    "unicorn/explicit-length-check": "error",
+    "unicorn/prefer-string-slice": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/consistent-return": "error",
+    "typescript/strict-void-return": "error",
+    "typescript/return-await": ["error", "error-handling-correctness-only"],
+    "typescript/unbound-method": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      { "considerDefaultExhaustiveForUnions": true }
+    ],
+    "typescript/no-floating-promises": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-argument": "error",
+
     "no-restricted-properties": [
       "error",
       {

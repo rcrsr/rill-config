@@ -158,5 +158,5 @@ export function parseConfig(raw: string): RillConfigFile {
     assertOptionalNumber('host.setupTimeout', hostObj['setupTimeout']);
   }
 
-  return obj as unknown as RillConfigFile;
+  return obj;
 }

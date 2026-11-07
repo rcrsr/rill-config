@@ -1,0 +1,7 @@
+{
+  // Governs tests/ for type-aware linting (STD-LINT-11). The root tsconfig.json
+  // includes src/ only, so without this file oxlint-tsgolint types every test
+  // import as `error` and runs without the strictness flags tsc applies.
+  "extends": "../tsconfig.typecheck.json",
+  "include": ["./**/*", "../src/**/*"]
+}

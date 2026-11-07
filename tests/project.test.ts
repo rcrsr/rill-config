@@ -234,7 +234,7 @@ describe('loadProject', () => {
       await loadProject({
         configPath: '/nonexistent/path/rill-config.json',
         rillVersion: '1.0.0',
-      }).catch(() => undefined);
+      }).catch(() => {});
       expect(exitSpy).not.toHaveBeenCalled();
       exitSpy.mockRestore();
     });
@@ -415,7 +415,7 @@ describe('loadProject', () => {
             _names: string[],
             options?: { signal?: AbortSignal }
           ): Promise<Record<string, string>> {
-            if (options?.signal?.aborted) {
+            if (options?.signal?.aborted === true) {
               return Promise.reject(
                 new VariableProviderError(
                   'aborted',

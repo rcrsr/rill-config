@@ -8,8 +8,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `@rcrsr/rill` is a peer dependency pinned in lockstep to the matching rill minor version (see `peerDependencies` in `package.json`). Version bumps here track rill releases.
 
-Full project conventions live in `conduct/policies/` and are the source of truth: `policy-domain-node.md` (§NOD: layout, boundaries, errors, testing, commands), `policy-artifact-typescript.md` (§TS: code style), `policy-product-rill.md` (§RILL: product tenets). This file summarizes only what an everyday edit needs; the policies carry the detail.
-
 ## Commands
 
 Package manager is pnpm (via Corepack); the supported Node range is the `engines` field in `package.json`.
@@ -22,7 +20,7 @@ pnpm test                  # vitest run (all tests)
 pnpm test tests/loader.test.ts              # single test file
 pnpm test -t "pattern"                      # single test by name
 pnpm check:types           # tsc --noEmit -p tsconfig.typecheck.json
-pnpm check:lint            # oxlint on src/ and tests/
+pnpm check:lint            # oxlint --type-aware on src/ and tests/
 pnpm fix:lint              # oxlint --fix
 pnpm check:format          # oxfmt --check
 pnpm fix:format            # oxfmt
@@ -38,37 +36,43 @@ See `REPO-STANDARDS.md` §4.
 
 Vitest arguments pass straight through, with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite instead of the one file, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 
-Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs format then lint on pre-commit, in that order because the reverse lets the formatter undo a lint fix, and typecheck+test on pre-push (`LEFTHOOK=0` or `--no-verify` skips).
+Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs format then lint on pre-commit, in that order because the reverse lets the formatter undo a lint fix, and typecheck+test on pre-push (skip with `LEFTHOOK=0` only when explicitly told to bypass hooks). The pre-commit lint is not type-aware, so a commit can pass the hook and still fail `pnpm check:lint`, which is authoritative.
 
-Always go through the package scripts. `npx <tool>` and `pnpm exec <tool>` bypass the toolchain versions pinned in `devDependencies`. This is a standalone package, not a workspace, so `--filter` and `-r` do not apply. See `conduct/policies/policy-domain-node.md` §NOD.7.
+Always go through the package scripts. `npx <tool>` and `pnpm exec <tool>` bypass the toolchain versions pinned in `devDependencies`. This is a standalone package, not a workspace, so `--filter` and `-r` do not apply.
 
 ## Architecture
 
 ESM-only (`"type": "module"`). All intra-package imports use `.js` extensions. Public API is re-exported through `src/index.ts`; tests import `@rcrsr/rill-config`, which vitest aliases to `src/index.ts` (see `vitest.config.ts`), so no build is needed before testing.
 
-`src/` is flat: one concern per module, no subdirectories. A new concern gets a new top-level `src/*.ts` file, which keeps every stage one hop from the barrel. See `conduct/policies/policy-domain-node.md` §NOD.1.1.
+`src/` is flat: one concern per module, no subdirectories. A new concern gets a new top-level `src/*.ts` file, which keeps every stage one hop from the barrel.
 
-`loadProject()` in `src/project.ts` is the top-level orchestrator. Its pipeline (read, parse and interpolate, version check, load extensions, validate context, extension bindings, context bindings, resolvers) maps roughly one step per module. The `// Step N` comments in `project.ts` are the authority on step numbering; when the policy table disagrees with them, the code wins and the table gets fixed. See §NOD.1.2 for the mapping.
+`loadProject()` in `src/project.ts` is the top-level orchestrator. Its pipeline (read, parse and interpolate, version check, load extensions, validate context, extension bindings, context bindings, resolvers) maps roughly one step per module. The `// Step N` comments in `project.ts` are the authority on step numbering.
 
-Two invariants that a routine change can silently break:
+Invariants that a routine change can silently break:
 
-- **Cleanup on failure.** Every step after extension loading runs inside a `try/catch` that awaits `runDisposes(disposes)` before rethrowing. Anything that can throw while `disposes` is non-empty belongs inside that block, or extension handles and timers leak (§NOD.1.3).
-- **Standalone exports.** Every step is also exported from `src/index.ts` so hosts like rill-cli can run partial pipelines. A step reachable only through `loadProject()` breaks them (§NOD.1.2).
+- **Cleanup on failure.** Every step after extension loading runs inside a `try/catch` that awaits `runDisposes(disposes)` before rethrowing. Anything that can throw while `disposes` is non-empty belongs inside that block, or extension handles and timers leak.
+- **Standalone exports.** Every step is also exported from `src/index.ts` so hosts like rill-cli can run partial pipelines. A step reachable only through `loadProject()` breaks them.
 
 Extension loading (`src/loader.ts`) is the largest module: it resolves specifiers (relative, absolute, `file://`, bare), dynamically imports each extension, validates the manifest, invokes the factory, and collects the value tree, dispose callbacks, and error codes. Bare specifiers resolve from the `prefix` option (callers pass `<projectDir>/.rill/npm`; defaults to the config dir).
 
 ## Conventions
 
-- Errors: always throw a `ConfigError` subclass, never a plain `Error`; hosts dispatch on `instanceof ConfigError` and `.code`. A new class lands in `src/errors.ts`, `src/index.ts`, and the README error table in the same change (§NOD.3.2). Every public API addition belongs in the README tables that release (§RILL.3.3).
-- Imports: leaf modules import only `./types.js`, `./errors.js`, Node builtins, `semver`, and `@rcrsr/rill`. The single leaf-to-leaf exception is `loader.ts` importing `detectNamespaceCollisions`; do not add a second without equivalent rationale (§NOD.2.1).
-- A helper exported from its module but not from `index.ts` is `@internal` (e.g. `resolveSpecifier`). Do not re-export it "for convenience"; that turns an implementation detail into public API (§NOD.2.3).
-- Host-injection seams are data (a value or map) when sources are closed and the host can compute them eagerly. They are provider interfaces when sources are open-ended and discovered mid-pipeline; never ship a provider interface with one implementation (§NOD.8.1).
-- `exactOptionalPropertyTypes` is on: forward optional fields with a conditional spread, `...(signal !== undefined ? { signal } : {})`, not `signal ?? undefined` (§NOD.7, §TS.2.3).
-- Source files use `// ===` banner comments to group sections; new exports go under the matching banner in `src/index.ts` (§NOD.2.2).
-- Tests live in `tests/` (one file per `src/` module) with fixtures under `tests/fixtures/`; knip ignores fixtures. Each test file opens with a `Covers: HP-*, EC-* (AC-*)` spec header (§NOD.5.2), and imports the public package rather than `../src/*.js` unless the symbol is `@internal` (§NOD.5.1).
-- Naming and style rules (function prefixes, `as const` over `enum`, named exports only, `unknown` over `any`) are in `conduct/policies/policy-artifact-typescript.md` §TS.1 and §TS.8.
+- Errors: always throw a `ConfigError` subclass, never a plain `Error`; hosts dispatch on `instanceof ConfigError` and `.code`. A new class lands in `src/errors.ts`, `src/index.ts`, and the README error table in the same change. Each `ConfigError` subclass declares `readonly code = 'SCREAMING_SNAKE' as const`. Every public API addition belongs in the README tables that release.
+- Invalid, ambiguous, or silently degrading config input (unresolved variables, orphan keys, undefined factory values) throws a `ConfigError`; never warn and continue or substitute a default.
+- Config schema keys reject `__proto__`, `constructor`, and `prototype`; build the extension value tree root and intermediates as null-prototype objects, never plain `{}`.
+- Imports: leaf modules import only `./types.js`, `./errors.js`, Node builtins, `semver`, and `@rcrsr/rill`. The single leaf-to-leaf exception is `loader.ts` importing `detectNamespaceCollisions`; do not add a second without equivalent rationale.
+- `semver` is the only runtime dependency; add no other unless a Node builtin cannot do the job.
+- A helper exported from its module but not from `index.ts` is `@internal` (e.g. `resolveSpecifier`). Do not re-export it "for convenience"; that turns an implementation detail into public API.
+- Host-injection seams are data (a value or map) when sources are closed and the host can compute them eagerly. They are provider interfaces when sources are open-ended and discovered mid-pipeline; never ship a provider interface with fewer than two non-default implementations.
+- `exactOptionalPropertyTypes` is on: forward optional fields with a conditional spread, `...(signal !== undefined ? { signal } : {})`, not `signal ?? undefined`.
+- Source files use `// ===` banner comments to group sections; new exports go under the matching banner in `src/index.ts`.
+- Tests live in `tests/` (one file per `src/` module, except `index.ts` and `types.ts`; an `@internal` helper's test file is named after the helper) with fixtures under `tests/fixtures/`; knip ignores fixtures. Each test file opens with a `Covers: HP-*, EC-* (AC-*)` spec header, and imports the public package rather than `../src/*.js` unless the symbol is `@internal`.
+- Name new functions by verb prefix: `load*` orchestrates, `build*` assembles, `parse*`, `resolve*`, `validate*`/`check*` throw a `ConfigError` subclass, `extract*`/`has*`/`is*` derive or guard. Provider factories (`envProvider`) and established exports (`interpolate`) are exempt; do not rename them to conform.
+- Exported functions require explicit return types (`Promise<T>` for async).
+- Named exports only, no `export * from`; `unknown` over `any`; `as const` objects over `enum`; no class inheritance except for `Error`; do not mutate caller-owned arguments, except an explicit accumulator parameter.
 
 ## Repository standards
+<!-- rule-level: operational -->
 
 This repository conforms to the ecosystem baseline in `REPO-STANDARDS.md`,
 which arrives through the `@rcrsr/rill-dev` devDependency rather than as a file
@@ -78,13 +82,14 @@ in this tree. Read the installed copy at
 
 ```bash
 pnpm check:standards                        # elements readable from the tree
-pnpm exec rill-check-standards --remote     # adds §1 merge gates and §13 repo settings
+pnpm check:standards --remote               # adds §1 merge gates and §13 repo settings
 ```
 
 Read the summary line, not the exit code. `--` means an element was **not**
 checked; it still applies. A green run covers only the checked subset.
 
 ### CI checks the tree; `--remote` is a maintainer task
+<!-- rule-level: operational -->
 
 CI runs `check:standards` as the last leg of `pnpm run check`, without
 `--remote`. **Do not add it back.** Two independent reasons:
@@ -101,7 +106,7 @@ CI runs `check:standards` as the last leg of `pnpm run check`, without
   admin-scoped PAT or a GitHub App sitting in the PR path, to check settings a
   PR cannot alter.
 
-Run `pnpm exec rill-check-standards --remote` yourself, from a `gh`-authenticated
+Run `pnpm check:standards --remote` yourself, from a `gh`-authenticated
 shell, when repository settings change. It decides strictly more elements than
 any CI run can.
 
@@ -123,6 +128,7 @@ rather than reporting on a directory with no manifest.
 `@rcrsr/rill-dev`, so it cannot ship inside its own prerequisite.
 
 ### Recorded N/A
+<!-- rule-level: operational -->
 
 Each entry names the element ID and the stated condition from
 `REPO-STANDARDS.md` that it meets. An N/A claimed without a matching stated
@@ -133,14 +139,14 @@ condition is a defect, not a decision.
 | STD-CHK-7 | "The repository publishes exactly one package and has no root-versus-package version split to reconcile." One package, published from the root manifest. There is no root-vs-package pair to reconcile, so there is no version gate for CI to run. Tag-vs-manifest consistency is a different assertion and is enforced by STD-REL-2 in `release.yml`. |
 | STD-SCRIPT-3 | "The same condition as STD-CHK-7." No `check:versions` / `fix:versions`, for the reason above. |
 | STD-SCRIPT-7 | "The repository is a single package." There are no workspace packages to carry the atomic vocabulary. The single package is the root and takes the root vocabulary from STD-SCRIPT-1 (`check:types`, `check:lint`), not the bare package names. |
-| STD-PM-7 | **Satisfied vacuously, not N/A by the stated condition.** That condition reads "single package with no workspace file", and this repository *does* have a `pnpm-workspace.yaml`: it declares no `packages:` key and carries pnpm settings only, which pnpm reads either way. So the file exists, there are zero globs, and "every workspace glob matches" holds with nothing to check. The checker reports it as `--`. Do not read this row as meeting the written condition; a settings-only workspace file is a shape that condition does not describe. |
+| STD-PM-7 | **Satisfied vacuously, not N/A by the stated condition.** That condition reads "single package with no workspace file", and this repository *does* have a `pnpm-workspace.yaml`: it declares no `packages:` key and carries pnpm settings only, which pnpm reads either way. So the file exists, declares no globs, and "every workspace glob matches" holds with nothing to check. The checker reports it as `--`. Do not read this row as meeting the written condition; a settings-only workspace file is a shape that condition does not describe. |
 | STD-DEP-4 | "The repository is a single package." Vitest is declared once, in the only manifest, so there is no per-package consistency to keep. |
 
-Two elements are always-applicable and satisfied rather than N/A. Both are
+STD-PM-6 and STD-SUP-4 are always-applicable and satisfied rather than N/A. They are
 machine-checked and report `ok`; the notes stay because they carry the reasoning
 for the shape the checker accepts, which a passing line does not:
 
-- **STD-PM-6.** Verified against the pinned major, pnpm 12.3.4: since pnpm 11 it no
+- **STD-PM-6.** Verified against the pinned major, pnpm 12.18.0: since pnpm 11 it no
   longer reads `pnpm.onlyBuiltDependencies` from `package.json` and warns
   "Ignored build scripts" when the allowlist is absent. The allowlist is
   `allowBuilds` in `pnpm-workspace.yaml`, which is where 11 and 12 expect it.
@@ -158,7 +164,8 @@ for the shape the checker accepts, which a passing line does not:
 
 Loading `@rcrsr/rill-dev/lint-rules` through `jsPlugins` registers the rules
 without enabling any of them, so each is a deliberate opt-in in
-`.oxlintrc.json`. Both are on, scoped to `src/**/*.ts`.
+`.oxlintrc.json`. `rill/no-spec-id-reference` and `rill/no-duplicate-error-id`
+are on, scoped to `src/**/*.ts`.
 
 - **`rill/no-spec-id-reference`.** `src/` is what anyone reading the published
   package sees, and `conduct/` identifiers are unresolvable there. Tests are
@@ -180,6 +187,7 @@ Note `m.default.rules`, not `m.rules`: the plugin is a default export
 (`export default { meta, rules }`), so the module namespace carries `default`.
 
 ### Host settings, which no checkout can enforce
+<!-- rule-level: operational -->
 
 Merge gates (§1) and repository settings (§13) live on GitHub, so nothing in a
 diff reveals a change to them. Re-check with:

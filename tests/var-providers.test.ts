@@ -201,11 +201,9 @@ describe('chainProviders', () => {
     it('throws VariableProviderError with providerName property', async () => {
       const cause = new Error('network timeout');
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw new VariableProviderError(
-            'Provider failed',
-            'my-provider',
-            cause
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError('Provider failed', 'my-provider', cause)
           );
         },
       };
@@ -220,11 +218,13 @@ describe('chainProviders', () => {
     it('propagated VariableProviderError carries the correct providerName', async () => {
       const cause = new Error('connection refused');
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw new VariableProviderError(
-            'Provider failed',
-            'vault-provider',
-            cause
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError(
+              'Provider failed',
+              'vault-provider',
+              cause
+            )
           );
         },
       };
@@ -241,11 +241,13 @@ describe('chainProviders', () => {
     it('propagated VariableProviderError carries the original cause', async () => {
       const cause = new Error('upstream error');
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw new VariableProviderError(
-            'Provider failed',
-            'infra-provider',
-            cause
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError(
+              'Provider failed',
+              'infra-provider',
+              cause
+            )
           );
         },
       };
@@ -266,19 +268,17 @@ describe('chainProviders', () => {
 
       const cause = new Error('failure');
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw new VariableProviderError(
-            'First failed',
-            'first-provider',
-            cause
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError('First failed', 'first-provider', cause)
           );
         },
       };
 
       const second: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
+        provide(_names: string[]): Promise<Record<string, string>> {
           secondCalled = true;
-          return { VAR: 'from-second' };
+          return Promise.resolve({ VAR: 'from-second' });
         },
       };
 
@@ -299,8 +299,8 @@ describe('chainProviders', () => {
       );
 
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw expected;
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(expected);
         },
       };
 
@@ -317,11 +317,13 @@ describe('chainProviders', () => {
     it('surfaces the halt error as a ConfigError with the VARIABLE_PROVIDER code for host dispatch', async () => {
       const cause = new Error('infra down');
       const failing: VariableProvider = {
-        async provide(_names: string[]): Promise<Record<string, string>> {
-          throw new VariableProviderError(
-            'Provider failed',
-            'first-provider',
-            cause
+        provide(_names: string[]): Promise<Record<string, string>> {
+          return Promise.reject(
+            new VariableProviderError(
+              'Provider failed',
+              'first-provider',
+              cause
+            )
           );
         },
       };
@@ -347,8 +349,8 @@ describe('chainProviders', () => {
         '{"__proto__": {"API_ENDPOINT": "https://attacker.example"}}'
       ) as Record<string, string>;
       const provider: VariableProvider = {
-        async provide(): Promise<Record<string, string>> {
-          return malicious;
+        provide(): Promise<Record<string, string>> {
+          return Promise.resolve(malicious);
         },
       };
 

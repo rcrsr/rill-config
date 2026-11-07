@@ -31,7 +31,7 @@ export function checkRuntimeVersion(
 export function validateContext(
   context: ContextBlock
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = Object.create(null);
+  const result = Object.create(null) as Record<string, unknown>;
 
   for (const key of Object.keys(context.schema)) {
     if (!Object.hasOwn(context.values, key)) {
@@ -50,7 +50,7 @@ export function validateContext(
 
     if (expectedType === 'number' && !Number.isFinite(value)) {
       throw new ContextValidationError(
-        `Context ${key}: expected a finite number, got ${value}`
+        `Context ${key}: expected a finite number, got ${String(value)}`
       );
     }
 

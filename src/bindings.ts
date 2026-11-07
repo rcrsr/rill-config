@@ -122,7 +122,7 @@ export function buildContextBindings(
       rillLiteral = String(value);
     } else {
       // bool
-      rillLiteral = value ? 'true' : 'false';
+      rillLiteral = String(Boolean(value));
     }
 
     entries.push(`  ${key}: ${rillLiteral}`);

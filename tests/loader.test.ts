@@ -128,7 +128,7 @@ vi.mock('/fake/ext/undef-value', () => ({
 vi.mock('/fake/ext/valid-factory', () => ({
   extensionManifest: {
     factory: (_cfg: Record<string, unknown>) => ({
-      value: { run: { fn: async () => 'ok', params: [] } },
+      value: { run: { fn: () => Promise.resolve('ok'), params: [] } },
     }),
   },
 }));
@@ -136,7 +136,7 @@ vi.mock('/fake/ext/with-dispose', () => ({
   extensionManifest: {
     factory: () => ({
       value: 'placeholder',
-      dispose: () => undefined,
+      dispose: () => {},
     }),
   },
 }));
@@ -303,7 +303,7 @@ vi.mock('/fake/ext/dotpath-config-capture', () => ({
 vi.mock('/fake/ext/dual-mount', () => ({
   extensionManifest: {
     factory: (_cfg: Record<string, unknown>) => ({
-      value: { fn1: { fn: async () => 'v', params: [] } },
+      value: { fn1: { fn: () => Promise.resolve('v'), params: [] } },
     }),
   },
 }));
@@ -491,7 +491,7 @@ describe('loadExtensions', () => {
       const mounts = [
         makeMount('vext', '/fake/ext/version-mismatch', '^2.0.0'),
       ];
-      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      const err = await loadExtensions(mounts, {}).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ExtensionVersionError);
       const msg = (err as Error).message;
       expect(msg).toContain('/fake/ext/version-mismatch');
@@ -521,7 +521,7 @@ describe('loadExtensions', () => {
 
     it('error message names the transitive dep and the importing file', async () => {
       const mounts = [makeMount('tm', transitiveFixture)];
-      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      const err = await loadExtensions(mounts, {}).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ExtensionLoadError);
       const msg = (err as Error).message;
       expect(msg).toContain('fake-transitive-dep-rcrsr-test');
@@ -544,7 +544,7 @@ describe('loadExtensions', () => {
         )
       );
       const mounts = [makeMount('hm', hintedFixture)];
-      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      const err = await loadExtensions(mounts, {}).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ExtensionLoadError);
       const msg = (err as Error).message;
       expect(msg).toContain('Hint:');
@@ -559,7 +559,7 @@ describe('loadExtensions', () => {
         makeMount('a', '@nonexistent/rill-ext-aggregate-99999'),
         makeMount('tm', transitiveFixture),
       ];
-      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      const err = await loadExtensions(mounts, {}).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ExtensionLoadError);
       const msg = (err as Error).message;
       expect(msg).toContain('@nonexistent/rill-ext-aggregate-99999');
@@ -804,7 +804,7 @@ describe('loadExtensions', () => {
         makeMount('a', '@nonexistent/rill-ext-order-a-99999'),
         makeMount('b', '@nonexistent/rill-ext-order-b-99999'),
       ];
-      const err = await loadExtensions(mounts, {}).catch((e) => e);
+      const err = await loadExtensions(mounts, {}).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ExtensionLoadError);
       const msg = (err as Error).message;
       expect(msg).toBe(
@@ -895,7 +895,7 @@ describe('loadExtensions', () => {
         ['noman', { someOtherExport: 42 }],
       ]);
       const err = await loadExtensions(mounts, {}, { extensionModules }).catch(
-        (e) => e
+        (e: unknown) => e
       );
       expect(err).toBeInstanceOf(ExtensionLoadError);
       expect((err as Error).message).toContain('mounted at "noman"');
@@ -936,7 +936,7 @@ describe('loadExtensions', () => {
           {
             extensionModules,
           }
-        ).catch((e) => e);
+        ).catch((e: unknown) => e);
         expect(err).toBeInstanceOf(ExtensionLoadError);
         expect((err as Error).message).toContain(
           `must be an object, got ${expectedType}`
@@ -961,7 +961,7 @@ describe('loadExtensions', () => {
         ['typo', { extensionManifest: { factory: () => ({ value: 'x' }) } }],
       ]);
       const err = await loadExtensions(mounts, {}, { extensionModules }).catch(
-        (e) => e
+        (e: unknown) => e
       );
       expect(err).toBeInstanceOf(ExtensionLoadError);
       expect((err as Error).message).toContain(
@@ -1009,7 +1009,7 @@ describe('loadExtensions', () => {
         makeMount('b', '/fake/ext/deferred-code-b'),
       ];
       const result = await loadExtensions(mounts, {});
-      const deferredDispose = result.disposes[result.disposes.length - 1]!;
+      const deferredDispose = result.disposes.at(-1)!;
       await expect(
         Promise.resolve().then(() => deferredDispose())
       ).rejects.toThrow(ExtensionLoadError);
@@ -1052,7 +1052,9 @@ describe('loadExtensions', () => {
       const mounts = [
         makeMount('missing', './__does-not-exist-relative-entry__.js'),
       ];
-      const err = await loadExtensions(mounts, {}, { prefix }).catch((e) => e);
+      const err = await loadExtensions(mounts, {}, { prefix }).catch(
+        (e: unknown) => e
+      );
       expect(err).toBeInstanceOf(ExtensionLoadError);
       const msg = (err as Error).message;
       expect(msg).toContain('Cannot find packages:');

@@ -64,6 +64,8 @@ describe('resolveSpecifier', () => {
   describe('with prefix anchor', () => {
     it('resolves bare specifier from cwd when prefix is undefined', () => {
       const withoutPrefix = resolveSpecifier('semver');
+      // The explicit `undefined` is the case under test.
+      // oxlint-disable-next-line unicorn/no-useless-undefined
       const withUndefined = resolveSpecifier('semver', undefined);
       expect(withUndefined).toBe(withoutPrefix);
     });

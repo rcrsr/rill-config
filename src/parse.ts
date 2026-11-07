@@ -158,5 +158,8 @@ export function parseConfig(raw: string): RillConfigFile {
     assertOptionalNumber('host.setupTimeout', hostObj['setupTimeout']);
   }
 
-  return obj as unknown as RillConfigFile;
+  // No cast: every RillConfigFile property is optional, so `obj` is accepted
+  // as-is. The assert* calls above are what establish the shape; a new field
+  // needs a matching assert*, which the compiler no longer demands.
+  return obj;
 }

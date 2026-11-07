@@ -203,9 +203,9 @@ function mountValue(
     const part = parts[i]!;
     const existing = node[part];
     if (existing === undefined) {
-      const intermediate: Record<string, RillValue> = Object.create(null);
+      const intermediate = Object.create(null) as Record<string, RillValue>;
       loaderCreated.add(intermediate);
-      node[part] = intermediate as unknown as RillValue;
+      node[part] = intermediate;
     } else if (
       typeof existing !== 'object' ||
       existing === null ||
@@ -213,7 +213,7 @@ function mountValue(
       isApplicationCallable(existing) ||
       isTuple(existing) ||
       isVector(existing) ||
-      !loaderCreated.has(existing as object)
+      !loaderCreated.has(existing)
     ) {
       const prefix = parts.slice(0, i + 1).join('.');
       throw new ExtensionLoadError(
@@ -223,7 +223,7 @@ function mountValue(
     node = node[part] as unknown as Record<string, RillValue>;
   }
 
-  node[parts[parts.length - 1]!] = value;
+  node[parts.at(-1)!] = value;
 }
 
 /**

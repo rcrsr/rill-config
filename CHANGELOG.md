@@ -7,12 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking Changes
-
-- **Peer dependency:** `peerDependencies["@rcrsr/rill"]` moves from `~0.21.0` to `~0.23.0`, that is `>=0.23.0 <0.24.0`. This release does not install alongside rill 0.21.x or 0.22.x; hosts must upgrade rill to 0.23.x in the same step. The suite and typecheck pass against 0.23.0. ([#55](https://github.com/rcrsr/rill-config/pull/55))
-
 ### Changed
 
+- **Peer dependency (breaking):** `peerDependencies["@rcrsr/rill"]` moves from `~0.21.0` to `~0.23.0`, that is `>=0.23.0 <0.24.0`. This release does not install alongside rill 0.21.x or 0.22.x; hosts must upgrade rill to 0.23.x in the same step. The suite and typecheck pass against 0.23.0. ([#55](https://github.com/rcrsr/rill-config/pull/55))
 - **`@rcrsr/rill-dev` 0.2.5 to 0.3.0 and type-aware linting:** The checker adds STD-LINT-10, STD-LINT-11, and STD-LINT-12, all satisfied here. `.oxlintrc.json` now configures the 38 reference rules from the baseline, including a 1000-line `max-lines` cap. `check:lint` and `fix:lint` run with `--type-aware`, `oxlint-tsgolint` is a new devDependency, and `tests/tsconfig.json` gives `tests/` a governing tsconfig. The 73 findings these rules raised are fixed: redundant casts and `async` keywords removed in `src/`, and test stubs return explicit promises. No change to published behavior. ([#55](https://github.com/rcrsr/rill-config/pull/55))
 - **Toolchain and dev dependency sweep:** pnpm 12.3.4 to 12.18.0, vitest 5.0.0 to 5.1.0, oxlint 1.82.0 to 1.91.0, oxfmt 0.67.0 to 0.76.0, knip 6.35.0 to 6.44.1, `@types/node` 26.5.0 to 26.6.6, and `semver` 7.8.5 to 7.8.6, matching rill-dev 0.3.0's baseline. lefthook moves to 2.2.1, not 2.2.2: 2.2.2 was published without provenance, and `trustPolicy: no-downgrade` rejects it. Run `corepack use pnpm@12.18.0` on an existing clone. ([#55](https://github.com/rcrsr/rill-config/pull/55))
 - **CLAUDE.md contributor guidance:** Adds missing contributor rules and fixes stale statements; no source, test, or published behavior changes. ([#55](https://github.com/rcrsr/rill-config/pull/55))

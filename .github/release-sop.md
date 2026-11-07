@@ -19,7 +19,10 @@ Derived from the 0.19.1 through 0.20.0 releases (PRs #6, #8, #11, #17) and `rele
 The minor version tracks the `@rcrsr/rill` minor this package is pinned to in
 `peerDependencies`. When the peer range moves (`~0.20.0` to `~0.21.0`), the package
 version moves to the same minor (`0.20.x` to `0.21.0`) and the changelog carries a
-**Breaking Changes** entry for the peer bump. Patch releases (`0.19.1`, `0.19.2`,
+`### Changed` entry for the peer bump, labeled `**Peer dependency (breaking):**`. Do
+not add a `### Breaking Changes` heading: it is not a Keep a Changelog category, and
+the `/conduct:cut-release` changelog guard rejects it. The 0.20.0 and 0.21.0
+sections predate this rule and keep their headings. Patch releases (`0.19.1`, `0.19.2`,
 `0.19.3`) are free to cut between rill minors.
 
 Before choosing `{version}`, read `peerDependencies["@rcrsr/rill"]` in `package.json`.

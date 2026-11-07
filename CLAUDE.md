@@ -20,7 +20,7 @@ pnpm test                  # vitest run (all tests)
 pnpm test tests/loader.test.ts              # single test file
 pnpm test -t "pattern"                      # single test by name
 pnpm check:types           # tsc --noEmit -p tsconfig.typecheck.json
-pnpm check:lint            # oxlint on src/ and tests/
+pnpm check:lint            # oxlint --type-aware on src/ and tests/
 pnpm fix:lint              # oxlint --fix
 pnpm check:format          # oxfmt --check
 pnpm fix:format            # oxfmt
@@ -36,7 +36,7 @@ See `REPO-STANDARDS.md` §4.
 
 Vitest arguments pass straight through, with no `--` separator. `pnpm test -- tests/loader.test.ts` silently runs the *whole* suite instead of the one file, and a full green run looks just like a passing filtered one, so check the reported file count when filtering.
 
-Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs format then lint on pre-commit, in that order because the reverse lets the formatter undo a lint fix, and typecheck+test on pre-push (skip with `LEFTHOOK=0` only when explicitly told to bypass hooks).
+Linting and formatting use oxlint and oxfmt, not ESLint or Prettier. Lefthook runs format then lint on pre-commit, in that order because the reverse lets the formatter undo a lint fix, and typecheck+test on pre-push (skip with `LEFTHOOK=0` only when explicitly told to bypass hooks). The pre-commit lint is not type-aware, so a commit can pass the hook and still fail `pnpm check:lint`, which is authoritative.
 
 Always go through the package scripts. `npx <tool>` and `pnpm exec <tool>` bypass the toolchain versions pinned in `devDependencies`. This is a standalone package, not a workspace, so `--filter` and `-r` do not apply.
 
@@ -67,7 +67,7 @@ Extension loading (`src/loader.ts`) is the largest module: it resolves specifier
 - `exactOptionalPropertyTypes` is on: forward optional fields with a conditional spread, `...(signal !== undefined ? { signal } : {})`, not `signal ?? undefined`.
 - Source files use `// ===` banner comments to group sections; new exports go under the matching banner in `src/index.ts`.
 - Tests live in `tests/` (one file per `src/` module, except `index.ts` and `types.ts`; an `@internal` helper's test file is named after the helper) with fixtures under `tests/fixtures/`; knip ignores fixtures. Each test file opens with a `Covers: HP-*, EC-* (AC-*)` spec header, and imports the public package rather than `../src/*.js` unless the symbol is `@internal`.
-- Name functions by verb prefix: `load*` orchestrates, `build*` assembles, `parse*`, `resolve*`, `validate*`/`check*` throw a `ConfigError` subclass, `extract*`/`has*`/`is*` derive or guard.
+- Name new functions by verb prefix: `load*` orchestrates, `build*` assembles, `parse*`, `resolve*`, `validate*`/`check*` throw a `ConfigError` subclass, `extract*`/`has*`/`is*` derive or guard. Provider factories (`envProvider`) and established exports (`interpolate`) are exempt; do not rename them to conform.
 - Exported functions require explicit return types (`Promise<T>` for async).
 - Named exports only, no `export * from`; `unknown` over `any`; `as const` objects over `enum`; no class inheritance except for `Error`; do not mutate caller-owned arguments, except an explicit accumulator parameter.
 
